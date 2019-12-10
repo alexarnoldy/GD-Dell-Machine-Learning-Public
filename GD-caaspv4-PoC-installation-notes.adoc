@@ -1,0 +1,539 @@
+### CURRENT STAGE OF THIS DOCUMENT: Rapidly changing (again), possibly incomplete, likely brittle do to lots of automation based on this specific configuration
+#### Last updated: 2019.12.10, early AM PDT
+
+CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST works slightly differently depending on if the server is configured to boot in (U)EFI mode or Legacy BIOS mode. This document attempts to provide the simplest procedures for both cases. 
+
+#### This document is a strictly guided, step-by-step implementation of a specific configuration based on the CaaS Platform v4.0.0 Deployment Guide: https://documentation.suse.com/suse-caasp/4/single-html/caasp-deployment/
+* This specific configuration is based on five nodes:
+** Management Workstation - VM or bare-metal host
+** One CaaS Platform Master Node - VM or bare-metal host
+** Three CaaS Platform Worker Nodes - Must be same as Master Node
+
+.Overview of this installation procedure:
+* Manually install the SLES15 SP1 on the CaaS Platform Management Workstation
+* Make an AutoYaST clone file of the Management Workstation
+* Update the clone file for some basic differences between the architecture and configuration of the Management Workstation and the CaaS Platform cluster nodes
+* AutoYaST install the Master Node 
+
+TIP: If the differences between the Management Workstation and the CaaS Platform cluster nodes is too complex, it may be quicker and easier to manually install the Master Node, make and update an AutoYaST clone file of it, then use copies of that to install the Worker Nodes.
+
+* Update the (primarily networking) configuration of the Master Node
+* Create an AutoYaST clone file of the Master Node
+* Make and update copies of the Master Node's AutoYast clone file for the Worker Nodes
+* AutoYast install the Master Nodes
+* Install and configure CaaS Platform v4.0.0
+
+NOTE: Unlike CaaS Platform v3, the Management Workstation for CaaS Platform v4 is not tied in a 1:1 relationship with the CaaS Platform cluster.
+      A Management Workstation can be used to deploy one or more CaaS Platform clusters and a CaaS Platform cluster can be managed from the 
+      Management Workstation that deployed it and/or another appropriately configured Management Workstation.
+
+CAUTION: This guide can be used as a reference while deploying different configurations, but deviating from the specified design will cause unpredicable results
+
+
+.Required preparation that is not yet covered
+* Establish an IP schema for the cluster. In this document, the Management Workstation (aka admin.caaspv4.com) is 172.16.241.200, the master and three worker nodes are 172.16.241.105-108
+* Populate DNS records that are available to the cluster nodes
+
+.Install the Management Workstation:
+
+* Can be a VM, as long as it has access to the Internet and the cluster network
+* 4 vCPU, 4096MB mem, 20GB qcow2 boot drive in default libvirt location
+
+NOTE: Some platforms do not allow the first GbE network interface to be aliased to eth0. Adjust the alias as appropriate for the network interface that has access to the Internet.
+
+* Booting from ISO: Select "Installation" BUT DO NOT PRESS ENTER
+* On "Boot Options:" line: `ifcfg=eth0=172.16.241.200/24,172.16.241.254,172.16.250.2,caaspv4.com hostname=admin.caaspv4.com`
+** Format of ifcfg=eth0 is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
+* Press Enter
+
+IMPORTANT: Use the CaaS Platform subscription key, not the SLES subscription key to register all CaaS Platform nodes, including the Management Workstation
+
+* Use the CaaS Platform subscription key to register SLES 15 SP1
+
+IMPORTANT: This procedured currently does not support registering with an SMT/RMT server
+
+** Enable the following repositories:
+*** SUSE CaaS Platform 4.0 
+**** Should automatically enable Basesystem Module and Containers Module
+*** Desktop Applications Module
+
+NOTE: A desktop environment is not needed for this installation. 
+      If you want a desktop environment on the Management Workstation, all of the CaaS Platform nodes will also have one. 
+      There are ways around this, but they are outside the scope of this document.
+
+* For partitioning, select Guided Setup
+** A separate Home Partition is not needed on any of the CaaS Platform Nodes but can be configured, if desired
+** Keep defaults except deselect "Propose Separate Swap Partition"
+*** Note: Swap will likely not be needed for the Management Workstation
+
+CAUTION: If you choose to create a swap partition for the Management Workstation, you MUST remove it from the AutoYaST clone file for the CaaS Platform nodes. Swap is incompatible with Kubernetes
+
+* Create New User:
+** User's Full Name and Username: sles
+** Select "Use this password for system administrator" and Automatic Login
+
+IMPORTANT: It is recommended to use a secure password that will work with all elements of the PoC environment. Therefore a password should be selected that includes at least one upper case and one lower case letter, one number and at least one of the following three special characters: ! # $
+
+* Select "Use this password for system administrator", but do not select Automatic Login 
+* On the final "Installation Settings" screen:
+** Under Security, disable the Firewall
+* Install
+
+
+
+.Finish preparing the Management workstation:
+* Enable passwordless sudo for the user sles
+----
+sudo bash -c "echo 'sles ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01sles"
+----
+* The eaisest way to insert the Management Workstation's SSH key into the AutoYaST clone file is to add it to itself before creating the clone file
+** `ssh-keygen`
+*** Accept the defaults, though a passphrase can be configured here, if desired
+** `cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys`
+* Update the NTP client settings. 
+** `sudo yast timezone`
+*** `other Settings`
+*** `Synchronize with NTP server`
+**** This example simply accepts the default, public NTP service for the region 
+***** Select a different NTP serer, if available 
+*** `Synchronize now`
+**** Synchronizing with the NTP service will take several seconds but should complete without error
+*** `Run NTP as daemon`
+*** `Save NTP Configuration`
+*** `Accept`, then `OK`
+
+
+.Create an AutoYaST clone file of the Management Workstation
+* `sudo yast2 clone_system`
+** Approve the installation of the autoyast2 package
+* `mkdir ~/autoyast_templates`
+* `sudo mv /root/autoinst.xml ~/autoyast_templates/`
+* `sudo chown -R sles:users ~/autoyast_templates/`
+* `cp ~/autoyast_templates/autoinst.xml ~/autoyast_templates/ses-osd-c.xml`
+
+* Setup Docker and the nginx webserver
+** `sudo zypper -n in docker`
+** `sudo systemctl start docker.service && sudo systemctl enable docker.service`
+*** The output should show that a symlink was created
+** `sudo usermod -aG docker sles ; sudo su - sles`
+** Launch nginx webserver container: `docker run --name autoyast-nginx -v /home/sles/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest`
+
+IMPORTANT: This container WILL NOT automatically start after rebooting the Management Workstation. Use `docker start autoyast-nginx` to start it manually
+
+* Find the network port used by the nginx container:
+** `docker ps`
+*** The port will listed under PORTS. For example, port 32768 would be indicated with: `0.0.0.0:32768->80/tcp`
+* Set this variable to the nginx port: `NGINX_PORT=""`
+* Test that the master autoyast file is available: `curl http://admin.caaspv4.com:$NGINX_PORT/master.xml`
+** The output should display the entire ses-osd-c.xml file
+*** To verify the output, compare the md5sum from each of the following two commands:
+**** `md5sum autoyast_templates/master.xml`
+**** `curl http://ses-admin.stable.suse.lab:$NGINX_PORT/master.xml | md5sum`
+
+.Update the master.xml AutoYaST file with the correct hostname and IP address
+* `sudo zypper -n in xmlstarlet`
+* `cd ~/autoyast_templates/`
+* Verify that getent returns the correct IP address and fully qualified hostname 
+** `getent hosts master`
+
+WARNING: If the getent command does not return the correct IP address and fully qualified hostanme, DO NOT run the following `xml ed` and `sed` commands
+
+* Update hostname in the master.xml file: `xml ed -L -u "//_:networking/_:dns/_:hostname" -v master master.xml`
+
+TIP: Use the command `grep ipaddr autoinst.xml` to verify the Management Workstation's IP address
+
+** Set this variable to the Management Workstation's IP address (i.e. 172.16.241.105): `MANAGEMENTIP=""`
+----
+MASTERIP=`getent hosts master | awk '{print$1}'`; sed -i "s/$MANAGEMENTIP/$MASTERIP/" master.xml
+----
+
+
+IMPORTANT: In this procedure, AutoYaST will initially install the Master Node with the same network configuration as the Management Workstation. After the installation, the network will be manually changed to the Master Node's installed configuration. That configuration will be captured and used to AutoYaST install the Worker Nodes. If the Management Workstation's installed network configuration is not compatible with the Master Node's network capabilities (i.e. the Management Workstation uses eth0 but eth0 on the Master Node is not connect to the network), it is recommended to either edit the AutoYast file to create the Master Node's installed network configuration, or install the Master Node manually. See the AutoYaST guide for more information: https://documentation.suse.com/sles/15-SP1/single-html/SLES-autoyast/#book-autoyast
+
+.Update the master.xml AutoYaST file based on architectural differences:
+* If the Master Node is a bare-metal host, run this command: 
+----
+xml ed -L -d "//_:services-manager/_:services/_:enable/_:service[text()='spice-vdagentd']"  master.xml
+----
+* If the Master Node boots in Legacy BIOS mode, run this command: `xml ed -L -u "//_:bootloader/_:loader_type" -v grub2 master.xml`
+* If the Master Node boots in (U)EFI mode, run this command: `xml ed -L -u "//_:bootloader/_:loader_type" -v grub2-efi master.xml`
+
+
+////
+Manual way of updating hostname and IP address
+*** `cd autoyast_templates/; vim master.xml`
+**** Search for <\/hostname
+***** Change hostname from admin to master
+**** Search for `<ipaddr`
+***** Change the IP address to that of the master. In this document it is 172.16.241.105
+////
+
+.Update the correct boot drive for the Master Node
+
+CAUTION: The following steps assume that the first drive to be probed is the Master Node's boot drive. If this is not the case, edit the AutoYaST file manually to set the correct boot drive
+
+** If the Master Node is a VM, run this command: `xml ed -L -u "//_:partitioning/_:drive/_:device"[1] -v "/dev/vda" master.xml`
+** If the Master Node is a bare-metal server, run this command: `xml ed -L -u "//_:partitioning/_:drive/_:device"[1] -v "/dev/sda" master.xml`
+* `cd ~/autoyast_templates/; vim master.xml`
+* Fill the root partition with all of the remaining space on the boot drive:
+** To find the <partition> element for the root partition, search for the string `<mount>\/<`
+*** Inside that <partition> element (normally below the <mount> subnode), change the value of the <size> subnode to `max`
+**** For example, before the change it might look like: `<size>66561507328</size>` and after the change it will look like: `<size>max</size>`
+
+.Add the software registration information
+* Add the following element at the top, right below <profile ... > 
+----
+  <suse_register>
+    <do_registration config:type="boolean">true</do_registration>
+    <email>MY_EMAIL_ADDRESS</email>
+    <reg_code>MY_CAASP_REGCODE</reg_code>
+    <install_updates config:type="boolean">true</install_updates>
+    <slp_discovery config:type="boolean">false</slp_discovery>
+    <addons config:type="list">
+      <addon>
+        <!-- Containers Module -->
+        <name>sle-module-containers</name>
+        <version>15.1</version>
+        <arch>x86_64</arch>
+      </addon>
+      <addon>
+        <!-- SUSE CaaS Platform -->
+        <!-- Depends on: Containers Module -->
+        <name>caasp</name>
+        <version>4.0</version>
+        <arch>x86_64</arch>
+        <reg_code>MY_CAASP_REGCODE</reg_code>
+      </addon>
+    </addons>
+  </suse_register>
+----
+** Update MY_EMAIL_ADDRESS with the correct email address and MY_CAASP_REGCODE with your registration code
+
+NOTE: A full list of extensions can be found at: https://github.com/yast/yast-registration/wiki/Available-SCC-Extensions-for-Use-in-Autoyast
+
+////
+* Create the XML block to register CaaS Platform 4.0 (doesn't work yet)
+----
+cat <<EOF> reg_code.xml 
+  <suse_register>
+    <do_registration config:type="boolean">true</do_registration>
+    <email>tux@example.com</email>
+    <reg_code>MY_SECRET_REGCODE</reg_code>
+    <install_updates config:type="boolean">true</install_updates>
+    <slp_discovery config:type="boolean">false</slp_discovery>
+    <addons config:type="list">
+      <addon>
+        <!-- Containers Module -->
+        <name>sle-module-containers</name>
+        <version>15.1</version>
+        <arch>x86_64</arch>
+      </addon>
+      <addon>
+        <!-- SUSE CaaS Platform -->
+        <!-- Depends on: Containers Module -->
+        <name>caasp</name>
+        <version>4.0</version>
+        <arch>x86_64</arch>
+        <reg_code>MY_SECRET_REGCODE</reg_code>
+      </addon>
+    </addons>
+  </suse_register>
+EOF
+----
+
+////
+
+* Add the following element directly above the <services-manager> element:
+
+----
+  <scripts>
+    <post-scripts config:type="list">
+      <script>
+        <debug config:type="boolean">true</debug>
+        <feedback config:type="boolean">false</feedback>
+        <feedback_type/>
+        <filename>autoyast_post_updates.sh</filename>
+        <interpreter>shell</interpreter>
+        <location><![CDATA[http://admin.caaspv4.com:32768/autoyast_post_updates.sh]]></location>
+        <notification>Performing_Final_Updates</notification>
+        <param-list config:type="list"/>
+        <source><![CDATA[]]></source>
+      </script>
+    </post-scripts>
+  </scripts>
+----
+** In the URL above, change the port number `32768` to the port number of your nginx webserver container
+* Save the file and exit vim
+
+*** Create the /home/sles/autoyast_post_updates.sh file
+**** ` echo "echo 'sles ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01sles" > /home/sles/autoyast_templates/autoyast_post_updates.sh `
+
+.AutoYaST install the Master Node
+
+IMPORTANT: The procedure for installing via AutoYaST is slightly different depending on if the target server is configured to boot in (U)EFI mode or Legacy BIOS mode. Be sure to verify the boot mode for a bare-metal server before continuing. Virtual Machines commonly boot in Legacy BIOS mode. For more information, see the SLES15 SP1 AutoYaST guide: https://documentation.suse.com/sles/15-SP1/single-html/SLES-autoyast/#book-autoyast
+
+CAUTION: The steps below assume the Master Node's eth0 has network access to the admin node. If this is not the case, asjusted the "AutoYaST parameters" line below to specify a NIC on the Master Node that has network access to the admin node.
+
+* Provide the SLES 15 SP1 DVD1 installer DVD or ISO to the BIOS of the Master Node
+* Start the Master Node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
+** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
+** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
+*** AutoYaST parameters: `autoyast=http://admin.caaspv4.com:<nginx port>/master.xml ifcfg=eth0=<IP of master>/24,<IP of gateway>,<IP of DNS server>,caaspv4.com hostname=master.caaspv4.com`
+
+.After Master Node completes installation, Adjust its networking to suit the environment 
+
+NOTE: This document demonstrates the procdure for creating a bonded network from eth0
+    and eth1, then assigning the node's IP address to that bond; however, your configuration may be different
+
+** VM based CaaS Platform nodes will likely not need any network modifications
+* Perform the following steps from the Master Node's console:
+
+TIP: In yast, Tab will help you navigate through panes and options. Each option in yast will have a letter highlighted.
+     Using "Alt" + that letter will directly open that option.
+
+** `sudo yast lan`
+** `(Use tab and the arrow keys to highlight eth0) -> Delete -> OK`
+** `sudo yast lan`
+** `Add -> Device Type -> Bond -> Next`
+** `(Select Statically Assigned IP Address) -> IP Address -> (input the Master Node's IP address)`
+** `(Adjust the Subnet Mask, if needed) -> Bonded Slaves -> Yes`
+** `(Select both eth0 and eth1) -> Next`
+** `Routing -> (Ensure the Device for Default IPv4 Gateway is "-") -> OK`
+* Verify networking is functioning correctly:
+** `ip a`
+** `ping opensuse.com`
+
+.Ensure the Master Node does not have swap enabled. Swap is incompatible with Kubernetes
+* `cat /proc/swaps`
+** Should return a header line, but nothing else
+* `grep swap /etc/fstab`
+** Should return nothing
+*** If swap is enabled, remote the swap line from the /etc/fstab file and reboot
+
+.Add Master Node SSH key to its own authorized_keys file so it will be included in the AutoYaST clone file
+* `ssh-keygen`
+** Accept the defaults
+* `cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys`
+
+.Creating an AutoYaST clone of the Master Node
+** The following steps can be performed from the Master Node's console or an SSH session
+*** `sudo yast2 clone_system`
+*** SCP the AutoYaST file to the Management Workstation. This will overwrite the original master.xml file. Make a copy first, if needed.
+**** ` sudo scp /root/autoinst.xml admin.caaspv4.com:/home/sles/autoyast_templates/master.xml `
+
+.Create copies of the master.xml file for each Worker Node
+
+TIP: Perform the following steps from the Management Workstation as the sles user
+
+* `cd ~/autoyast_templates/`
+* `for EACH in 1 2 3; do cp -p master.xml worker$EACH.xml; done`
+
+.Edit each Worker Node XML file to update the hostname and IP address
+////
+Note: Due to the "<profile xmlns=" default namespace declaration in the AutoYaST file, xmlstarlet selects and edits follow a different format:
+To select the hostname: xml sel -t -m "//_:networking/_:dns" -v _:hostname FILENAME.xml
+To update the hostname: xml ed -L -u "//_:networking/_:dns/_:hostname" -v <new hostname> FILENAME.xml
+////
+
+* Change the hostname value for each Worker Node
+** `for EACH in 1 2 3; do xml ed -L -u "//_:networking/_:dns/_:hostname" -v worker$EACH worker$EACH.xml; done`
+* Verify that getent returns the correct IP addresses and hostnames. If not, DO NOT run the subsequent xml ed for loop
+** `for EACH in 1 2 3; do getent hosts worker$EACH; done`
+* Change the ipaddr value for each Worker Node's external interface
+** Set this variable to the Master Node's IP address: `MASTERIP=""`
+** `for EACH in 1 2 3; do WORKERIP=`getent hosts worker$EACH | awk '{print$1}'`; sed -i "s/$MASTERIP/$WORKERIP/" worker$EACH.xml; done`
+
+////
+This was the manual way to update hostname and IP address
+** `for EACH in 1 2 3; do vim worker$EACH.xml; done`
+*** Search for <\/hostname
+**** Change hostname from master to the correct Worker Node name
+*** Search for <ipaddr
+**** Change the IP address to that of the correct Worker Node
+*** Use the command `:x` to save the file and move on the the next
+////
+
+.Test that each Worker Node XML file is available through the nginx webserver
+* `docker ps`
+* Set this variable to the port listed under PORTS: `NGINX_PORT=""`
+* Test that each Worker Node autoyast file is available: `for EACH in 1 2 3; do curl http://admin.caaspv4.com:$NGINX_PORT/worker$EACH.xml | egrep "<hostname|ipaddr"; done`
+** Verify each hostname and IP address is correct for each Worker Node
+
+.AutoYaST install worker1
+
+IMPORTANT: The procedure for installing via AutoYaST is slightly different depending on if the target server is configured to boot in (U)EFI mode or Legacy BIOS mode. To ensure a the boot mode for a bare-metal server, consult its BIOS before continuing. Virtual Machines commonly boot in Legacy BIOS mode. For more information, see the SLES15 SP1 AutoYaST guide: https://documentation.suse.com/sles/15-SP1/single-html/SLES-autoyast/#book-autoyast
+
+TIP: It is recommended to fully install worker1 before continuing to the rest of the Worker Nodes.
+     Once it is shown that worker1 can be fully installed with the AutoYaST configuration, multiple Worker Nodes can be installed simultaneously.
+
+* Provide the SLES 15 SP1 DVD1 installer DVD or ISO to the VM or host BIOS
+* Start the worker1 from DVD ISO,  Select "Installation" at DVD GRuB screen, but DO NOT PRESS ENTER
+** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
+** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key, then provide the AutoYaST parameters, shown below; at the end of the "linuxefi" line. When ready, press Ctrl+x to boot the system.
+*** AutoYaST parameters: `autoyast=http://admin.caaspv4.com:<nginx port>/<worker node name>.xml ifcfg=eth0=<IP of worker node>/24,<IP of gateway>,<IP of DNS server>,caaspv4.com hostname=<worker node name>.caaspv4.com
+
+.AutoYaST install the rest of the Worker Nodes
+* Repeat the previous step, "AutoYast install worker1" for each of the remaining Worker Nodes
+
+.Preparation for forming CaaS Platform cluster
+
+NOTE: The following commands should be run from the Management Workstation and require a .all_nodes file that contains the fully qualified hostnames of all cluster nodes. Create this file if it doesn't already, before continuing.
+ 
+* `eval "$(ssh-agent)"`
+* `ssh-add /home/sles/.ssh/id_rsa`
+* Verify passwordless SSH and sudo capabilities for the sles user on all nodes
+----
+for EACH in `cat .all_nodes`; do ssh $EACH sudo hostname -f; done
+----
+** It should return each fully qualified hostname with no additional interaction required
+
+.Ensure caasp, SLES, basesystem, and containers are all "Registered"
+----
+for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo SUSEConnect -s | egrep --color "caasp|SLES|basesystem|containers|\"Registered\"" && echo"" && echo "Press Enter for next system" && read NEXT; done
+----
+
+.Ensure swap is not enabled on any of the CaaS Platform hosts
+----
+for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo ""; done
+----
+** Should return a header line for each node, but nothing else
+
+.Bootstrap the cluster
+* On the Management Workstation:
+* `sudo zypper -n install -t pattern SUSE-CaaSP-Management`
+* `skuba cluster init --control-plane mstr.suse.hpc.local suse-caasp-hpc`
+** Note: --control-plane defines the FQDN of the load balancer. The second argument is the name of the cluster.
+* Ensure the SSH Agent is running and has the sles user's RSA key loaded
+** `ps -ef | grep ssh-agent`
+*** If this doesn't return an ssh-agent running for the geeko user, run the following commands to start ssh-agent and add the Management Workstation's key:
+**** `eval "$(ssh-agent)"`
+**** `ssh-add /home/geeko/.ssh/id_rsa`
+* `cd /home/geeko/suse-caasp-hpc`
+* `skuba node bootstrap --user geeko --sudo --target mstr1.suse.hpc.local mstr1`
+** Note this command bootstraps the CaaS Platform cluster with mstr1.suse.hpc.local as the first master node. Internally, Kubernetes will assign this node the name "mstr1"
+
+.Join worker1 to the cluster
+* Ensure the SSH Agent is running and has the sles user's RSA key loaded
+** `ssh-add -l`
+*** If this doesn't return an SSH key, run the following commands to start ssh-agent and add the Management Workstation's key:
+**** `eval "$(ssh-agent)"`
+**** `ssh-add /home/sles/.ssh/id_rsa`
+* `cd ~/caaspv4-cluster`
+* `WORKER_FQDN="worker1.caaspv4.com"`
+* `WORKER="worker1"`
+* `skuba node join --role worker --user sles --sudo --target $WORKER_FQDN $WORKER`
+----
+cd ~/caaspv4-cluster
+for WORKER_FQDN in `grep worker .all_nodes | head -1`; do WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; skuba node join --role worker --user sles --sudo --target $WORKER_FQDN $WORKER; done
+----
+
+.Join each of the remain worker nodes to the cluster
+* If worker1 joined without error, join the rest of the Worker Nodes:
+----
+cd ~/caaspv4-cluster
+for WORKER_FQDN in `grep worker .all_nodes | tail -n+2`; do WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; skuba node join --role worker --user sles --sudo --target $WORKER_FQDN $WORKER; done
+----
+
+.Verify the status of the cluster
+* `cd ~/caaspv4-cluster/`
+* `skuba cluster status`
+
+.Enable the use of kubectl from the Management Workstation
+* `echo export KUBECONFIG=/home/sles/caaspv4-cluster/admin.conf >> ~/.bashrc`
+* `. ~/.bashrc` 
+* `kubectl get nodes`
+
+.Troubleshooting failed bootstrap
+* ssh to master and `sudo less /var/log/messages` 
+* Search for kub
+* Follow the progression of the skuba command and kubeadm
+** Generally skuba will install the packages, then launch kubeadm
+** kubeadm will set up the K8s components
+** If the failure occurs after kubeadm takes over try to replicate the failure:
+*** scp kubeadm-init.conf from the cluster directory (caaspv4-cluster in this doc) to /tmp on the master node
+*** Run the `kubeadm init` command that is in /var/log/messages
+*** kubeadm should give reasonably actionable error messages
+
+
+////
+THIS WORK IS BASED ON PREVIOUS, FAILED ATTEMPTS. DO NOT USE!!!!!!
+Install master node:
+Deploy Deployment host O/S: Set IP on Grub line, enable repos: CaaSPv4, Containers, Package Hub
+* Can enable SLES subscription with the CaaS Platform product key
+* Disable Firewall
+* Must have the same user across all nodes. Recommend use sles
+
+.After installation complete:
+
+* echo "sles ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+* Add the ssh key from the sles user on the Management Workstation to the authorized_keys file
+* Verify proper subscriptions:
+** sudo SUSEConnect -s
+*** SLES must be registered before continuing
+** sudo SUSEConnect -p sle-module-containers/15.1/x86_64
+** sudo SUSEConnect -p caasp/4.0/x86_64 -r <CAASP_PRODUCT_KEY>
+* zypper update
+* zypper in cri-o
+* zypper -n in autoyast
+* yast2 clone_system
+** Note the underscore, not dash
+* Output file is /root/autoinst.xml
+* Need to update the autoinst.xml file with:
+<ntp-client>
+<suse_register>
+<addon>
+
+Need to take note of: The default AutoYaST file provides examples for a disabled 
+root user and a sles user with authorized key SSH access.
+
+cp -p autoinst.xml worker1.xml
+vi worker1.xml
+* Change 105 (the IP of the base node) to 106 for <ipaddr>
+* Change <hostname> from master to worker1
+* scp to deployment host: scp worker1.xml admin@deployer.caaspv4.com:/home/admin/autoyast_templates/worker1.xml
+
+.On the Management Workstation:
+* Create the user sles
+* (as root) echo "sles ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+* Verify proper subscriptions:
+** sudo SUSEConnect -s
+*** SLES must be registered before continuing
+** sudo SUSEConnect -p sle-module-containers/15.1/x86_64
+** sudo SUSEConnect -p caasp/4.0/x86_64 -r <CAASP_PRODUCT_KEY>
+* Set up docker
+Launch nginx container: docker run --name mynginx  -v /home/admin/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest
+* Take note of the network port assigned to nginx
+Test from master: curl http://deployer.caaspv4.com:<nginx port>/worker1.xml 
+
+.Install worker hosts with AutoYaST:
+* Start worker1 host from DVD ISO,  Select "Installation" at DVD GRuB screen, but DO NOT PRESS ENTER
+* On Installation line: `autoyast=http://deployer.caaspv4.com:<nginx port>/worker1.xml ifcfg=eth0=<IP of worker1>/24,<IP of gateway>,<IP of DNS server,<search domain> hostname=worker1.caaspv4.com
+* Repeat for worker2 and worker3
+
+.Notes for skuba installation:
+
+* Need a single SSH key and ssh-agent enabled:
+** As the deployment user (sles in the deployment guide): 
+*** Ensure it has an id_rsa key in ~/.ssh/
+**** If not: ssh-keygen
+***** Accept the defaults
+* Start SSH Agent: eval "$(ssh-agent)"
+* Check to see if it imported the local user's default key: ssh-add -l
+** If not: ssh-add /home/sles/.ssh/id_rsa.pub
+
+
+* Install skuba tools: sudo zypper in -t pattern SUSE-CaaSP-Management
+
+* Make sure you are the user sles 
+skuba cluster init --control-plane master.caaspv4.com caaspv4-cluster
+cd caaspv4-cluster/
+
+
+skuba node bootstrap --user sles --sudo --target master.caaspv4.com master
+////
+
+
+
+
+
+// vim: set syntax=asciidoc:
