@@ -380,8 +380,8 @@ TIP: It is recommended to fully install worker1 before continuing to the rest of
 NOTE: The following commands should be run from the Management Workstation and require a .all_nodes file that contains the fully qualified hostnames of all cluster nodes. Create this file if it doesn't already, before continuing.
  
 * `eval "$(ssh-agent)"`
-* `ssh-add /home/sles/.ssh/id_rsa`
-* Verify passwordless SSH and sudo capabilities for the sles user on all nodes
+* `ssh-add /home/geeko/.ssh/id_rsa`
+* Verify passwordless SSH and sudo capabilities for the geeko user on all nodes
 ----
 for EACH in `cat .all_nodes`; do ssh $EACH sudo hostname -f; done
 ----
@@ -398,6 +398,12 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo "";
 ----
 ** Should return a header line for each node, but nothing else
 
+.For any VM nodes, snapshot before instantiating the cluster
+* Create snapshot
+----
+for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo virsh snapshot-create-as $EACH --name "before forming cluster"; echo ""; done
+----
+
 .Bootstrap the cluster
 * On the Management Workstation:
 * `sudo zypper -n install -t pattern SUSE-CaaSP-Management`
@@ -412,36 +418,40 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo "";
 * `skuba node bootstrap --user geeko --sudo --target mstr1.suse.hpc.local mstr1`
 ** Note this command bootstraps the CaaS Platform cluster with mstr1.suse.hpc.local as the first master node. Internally, Kubernetes will assign this node the name "mstr1"
 
-.Join worker1 to the cluster
-* Ensure the SSH Agent is running and has the sles user's RSA key loaded
-** `ssh-add -l`
-*** If this doesn't return an SSH key, run the following commands to start ssh-agent and add the Management Workstation's key:
-**** `eval "$(ssh-agent)"`
-**** `ssh-add /home/sles/.ssh/id_rsa`
-* `cd ~/caaspv4-cluster`
-* `WORKER_FQDN="worker1.caaspv4.com"`
-* `WORKER="worker1"`
-* `skuba node join --role worker --user sles --sudo --target $WORKER_FQDN $WORKER`
+.Join the remaining Master Nodes to the cluster
 ----
-cd ~/caaspv4-cluster
-for WORKER_FQDN in `grep worker .all_nodes | head -1`; do WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; skuba node join --role worker --user sles --sudo --target $WORKER_FQDN $WORKER; done
+for MASTER_FQDN in `grep mstr .all_nodes | tail -n+2`; do \
+MASTER=`echo $MASTER_FQDN | awk -F. '{print$1}'`; \
+skuba node join --role master --user geeko --sudo \
+--target $MASTER_FQDN $MASTER; \
+done
 ----
 
-.Join each of the remain worker nodes to the cluster
-* If worker1 joined without error, join the rest of the Worker Nodes:
+.Join the Worker Nodes to the cluster
 ----
-cd ~/caaspv4-cluster
-for WORKER_FQDN in `grep worker .all_nodes | tail -n+2`; do WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; skuba node join --role worker --user sles --sudo --target $WORKER_FQDN $WORKER; done
+for WORKER_FQDN in `grep wrkr .all_nodes`; do \
+WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; \
+skuba node join --role worker --user geeko --sudo \
+--target $WORKER_FQDN $WORKER; \
+done
 ----
 
 .Verify the status of the cluster
-* `cd ~/caaspv4-cluster/`
+* `cd /home/geeko/suse-caasp-hpc`
 * `skuba cluster status`
 
 .Enable the use of kubectl from the Management Workstation
-* `echo export KUBECONFIG=/home/sles/caaspv4-cluster/admin.conf >> ~/.bashrc`
+* `echo export KUBECONFIG=/home/geeko/caaspv4-cluster/admin.conf >> ~/.bashrc`
 * `. ~/.bashrc` 
 * `kubectl get nodes`
+
+.For any VM nodes, snapshot immediately after instantiating the cluster
+* Create snapshot
+----
+for EACH in `cat .all_kvm_hosts`; do echo $EACH; ssh $EACH ; echo ""; done
+----
+sudo virsh list --all | grep "suse.hpc.local" | awk '{print$2}' > /tmp/k8s_nodes
+for K8S_NODE in `cat /tmp/k8s_nodes`; do sudo virsh snapshot-create-as $K8S_NODE --name "after forming cluster"; done
 
 .Troubleshooting failed bootstrap
 * ssh to master and `sudo less /var/log/messages` 
@@ -454,83 +464,6 @@ for WORKER_FQDN in `grep worker .all_nodes | tail -n+2`; do WORKER=`echo $WORKER
 *** Run the `kubeadm init` command that is in /var/log/messages
 *** kubeadm should give reasonably actionable error messages
 
-
-////
-THIS WORK IS BASED ON PREVIOUS, FAILED ATTEMPTS. DO NOT USE!!!!!!
-Install master node:
-Deploy Deployment host O/S: Set IP on Grub line, enable repos: CaaSPv4, Containers, Package Hub
-* Can enable SLES subscription with the CaaS Platform product key
-* Disable Firewall
-* Must have the same user across all nodes. Recommend use sles
-
-.After installation complete:
-
-* echo "sles ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-* Add the ssh key from the sles user on the Management Workstation to the authorized_keys file
-* Verify proper subscriptions:
-** sudo SUSEConnect -s
-*** SLES must be registered before continuing
-** sudo SUSEConnect -p sle-module-containers/15.1/x86_64
-** sudo SUSEConnect -p caasp/4.0/x86_64 -r <CAASP_PRODUCT_KEY>
-* zypper update
-* zypper in cri-o
-* zypper -n in autoyast
-* yast2 clone_system
-** Note the underscore, not dash
-* Output file is /root/autoinst.xml
-* Need to update the autoinst.xml file with:
-<ntp-client>
-<suse_register>
-<addon>
-
-Need to take note of: The default AutoYaST file provides examples for a disabled 
-root user and a sles user with authorized key SSH access.
-
-cp -p autoinst.xml worker1.xml
-vi worker1.xml
-* Change 105 (the IP of the base node) to 106 for <ipaddr>
-* Change <hostname> from master to worker1
-* scp to deployment host: scp worker1.xml admin@deployer.caaspv4.com:/home/admin/autoyast_templates/worker1.xml
-
-.On the Management Workstation:
-* Create the user sles
-* (as root) echo "sles ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-* Verify proper subscriptions:
-** sudo SUSEConnect -s
-*** SLES must be registered before continuing
-** sudo SUSEConnect -p sle-module-containers/15.1/x86_64
-** sudo SUSEConnect -p caasp/4.0/x86_64 -r <CAASP_PRODUCT_KEY>
-* Set up docker
-Launch nginx container: docker run --name mynginx  -v /home/admin/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest
-* Take note of the network port assigned to nginx
-Test from master: curl http://deployer.caaspv4.com:<nginx port>/worker1.xml 
-
-.Install worker hosts with AutoYaST:
-* Start worker1 host from DVD ISO,  Select "Installation" at DVD GRuB screen, but DO NOT PRESS ENTER
-* On Installation line: `autoyast=http://deployer.caaspv4.com:<nginx port>/worker1.xml ifcfg=eth0=<IP of worker1>/24,<IP of gateway>,<IP of DNS server,<search domain> hostname=worker1.caaspv4.com
-* Repeat for worker2 and worker3
-
-.Notes for skuba installation:
-
-* Need a single SSH key and ssh-agent enabled:
-** As the deployment user (sles in the deployment guide): 
-*** Ensure it has an id_rsa key in ~/.ssh/
-**** If not: ssh-keygen
-***** Accept the defaults
-* Start SSH Agent: eval "$(ssh-agent)"
-* Check to see if it imported the local user's default key: ssh-add -l
-** If not: ssh-add /home/sles/.ssh/id_rsa.pub
-
-
-* Install skuba tools: sudo zypper in -t pattern SUSE-CaaSP-Management
-
-* Make sure you are the user sles 
-skuba cluster init --control-plane master.caaspv4.com caaspv4-cluster
-cd caaspv4-cluster/
-
-
-skuba node bootstrap --user sles --sudo --target master.caaspv4.com master
-////
 
 
 
