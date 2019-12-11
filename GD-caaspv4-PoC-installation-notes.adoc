@@ -446,12 +446,51 @@ done
 * `kubectl get nodes`
 
 .For any VM nodes, snapshot immediately after instantiating the cluster
-* Create snapshot
+* Create snapshot script
 ----
-for EACH in `cat .all_kvm_hosts`; do echo $EACH; ssh $EACH ; echo ""; done
-----
+cat <<EOF> /tmp/snap_after_cluster.sh
+/bin/bash
 sudo virsh list --all | grep "suse.hpc.local" | awk '{print$2}' > /tmp/k8s_nodes
-for K8S_NODE in `cat /tmp/k8s_nodes`; do sudo virsh snapshot-create-as $K8S_NODE --name "after forming cluster"; done
+for K8S_NODE in `cat /tmp/k8s_nodes`; do sudo virsh snapshot-create-as \$K8S_NODE --name "after forming cluster"; done
+EOF
+----
+
+* scp the script to each node and execute it
+----
+for EACH in `cat .all_kvm_hosts`; do \
+echo $EACH; scp /tmp/snap_after_cluster.sh $EACH:/tmp; \
+ssh $EACH /tmp/snap_after_cluster.sh ; echo ""; \
+done
+----
+
+#### Configure Dex and Gangway
+
+.Create the ClusterRoleBinding for the admins group
+* `kubectl create clusterrolebinding ldap-admin-access --clusterrole=cluster-admin --group=admins`
+* Edit the configmap: `kubectl --namespace=kube-system edit configmap oidc-dex-config`
+* Restart Dex and Gangway pods:
+----
+kubectl --namespace=kube-system delete pod -l app=oidc-dex
+kubectl --namespace=kube-system delete pod -l app=oidc-gangway
+----
+* Verify the new pods have started correctly: 
+----
+kubectl get pods -n kube-system -l app=oidc-dex
+kubectl get pods -n kube-system -l app=oidc-gangway
+----
+
+.Add the Dex self-signed cert to the Admin node:
+* Get the cert from the dex pod: `kubectl exec -it -n kube-system $(kubectl get pod -n kube-system -l app=oidc-dex -o name | head -1) cat /etc/dex/pki/ca.crt > /tmp/mstr.suse.hpc.local:32000-ca.crt`
+* Move the cert into place: `sudo mv /tmp/mstr.suse.hpc.local:32000-ca.crt /etc/pki/trust/anchors/`
+* Update the certs: `sudo update-ca-certificates`
+
+.Test authentication:
+* `skuba auth login -s https://mstr.suse.hpc.local:32000`
+* Remove the kubeconf.txt file, if the login was successful: `rm kubeconf.txt`
+* Use the Chromium browser to test logging into Gangway at https://mstr.suse.hpc.local:32001
+** Log in with a user id, such as suse, rather than email address
+** Try using Incognito Mode if cookie errors prevent logging in
+
 
 .Troubleshooting failed bootstrap
 * ssh to master and `sudo less /var/log/messages` 
