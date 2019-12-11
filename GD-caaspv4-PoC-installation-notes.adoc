@@ -491,6 +491,10 @@ kubectl get pods -n kube-system -l app=oidc-gangway
 ** Log in with a user id, such as suse, rather than email address
 ** Try using Incognito Mode if cookie errors prevent logging in
 
+### Configure the Ceph storage class
+
+
+
 
 .Troubleshooting failed bootstrap
 * ssh to master and `sudo less /var/log/messages` 
