@@ -61,10 +61,8 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 ----
 sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
 ----
-* The eaisest way to insert the Management Workstation's SSH key into the AutoYaST clone file is to add it to itself before creating the clone file
-** `ssh-keygen`
-*** Accept the defaults, though a passphrase can be configured here, if desired
-** `cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys`
+* `ssh-keygen`
+** Accept the defaults, though a passphrase can be configured here, if desired
 * Update the NTP client settings. 
 ** `sudo yast timezone`
 *** `other Settings`
@@ -102,10 +100,22 @@ IMPORTANT: This container WILL NOT automatically start after rebooting the Manag
 *** The port will listed under PORTS. For example, port 32768 would be indicated with: `0.0.0.0:32768->80/tcp`
 * Set this variable to the nginx port: `NGINX_PORT=""`
 * Test that files in the autoyast_templates directory are available: `curl http://kubeadmin.suse.hpc.local:$NGINX_PORT/.all_nodes`
-** The output should display the entire ses-osd-c.xml file
+** The output should display the contents of the .all_nodes file
+
+
+
+////
+.Create an AutoYaST clone file of the Management Workstation
+* `sudo yast2 clone_system`
+** Approve the installation of the autoyast2 package
+* `mkdir ~/autoyast_templates`
+* `sudo mv /root/autoinst.xml ~/autoyast_templates/`
+* `sudo chown -R geeko:users ~/autoyast_templates/`
+* `cp ~/autoyast_templates/autoinst.xml ~/autoyast_templates/ses-osd-c.xml`
 *** To verify the output, compare the md5sum from each of the following two commands:
 **** `md5sum autoyast_templates/master.xml`
 **** `curl http://ses-admin.stable.suse.lab:$NGINX_PORT/master.xml | md5sum`
+
 
 .Update the master.xml AutoYaST file with the correct hostname and IP address
 * `sudo zypper -n in xmlstarlet`
@@ -124,9 +134,6 @@ TIP: Use the command `grep ipaddr autoinst.xml` to verify the Management Worksta
 MASTERIP=`getent hosts master | awk '{print$1}'`; sed -i "s/$MANAGEMENTIP/$MASTERIP/" master.xml
 ----
 
-
-IMPORTANT: In this procedure, AutoYaST will initially install the Master Node with the same network configuration as the Management Workstation. After the installation, the network will be manually changed to the Master Node's installed configuration. That configuration will be captured and used to AutoYaST install the Worker Nodes. If the Management Workstation's installed network configuration is not compatible with the Master Node's network capabilities (i.e. the Management Workstation uses eth0 but eth0 on the Master Node is not connect to the network), it is recommended to either edit the AutoYast file to create the Master Node's installed network configuration, or install the Master Node manually. See the AutoYaST guide for more information: https://documentation.suse.com/sles/15-SP1/single-html/SLES-autoyast/#book-autoyast
-
 .Update the master.xml AutoYaST file based on architectural differences:
 * If the Master Node is a bare-metal host, run this command: 
 ----
@@ -134,15 +141,6 @@ xml ed -L -d "//_:services-manager/_:services/_:enable/_:service[text()='spice-v
 ----
 * If the Master Node boots in Legacy BIOS mode, run this command: `xml ed -L -u "//_:bootloader/_:loader_type" -v grub2 master.xml`
 * If the Master Node boots in (U)EFI mode, run this command: `xml ed -L -u "//_:bootloader/_:loader_type" -v grub2-efi master.xml`
-
-////
-.Create an AutoYaST clone file of the Management Workstation
-* `sudo yast2 clone_system`
-** Approve the installation of the autoyast2 package
-* `mkdir ~/autoyast_templates`
-* `sudo mv /root/autoinst.xml ~/autoyast_templates/`
-* `sudo chown -R geeko:users ~/autoyast_templates/`
-* `cp ~/autoyast_templates/autoinst.xml ~/autoyast_templates/ses-osd-c.xml`
 ////
 
 ////
@@ -156,79 +154,16 @@ Manual way of updating hostname and IP address
 
 .Update the correct boot drive for the Master Node
 
-CAUTION: The following steps assume that the first drive to be probed is the Master Node's boot drive. If this is not the case, edit the AutoYaST file manually to set the correct boot drive
+CAUTION: The following steps assume that the boot drives for all R640 nodes are configured identically. If case, edit the AutoYaST file manually to set the correct boot drive
 
-** If the Master Node is a VM, run this command: `xml ed -L -u "//_:partitioning/_:drive/_:device"[1] -v "/dev/vda" master.xml`
-** If the Master Node is a bare-metal server, run this command: `xml ed -L -u "//_:partitioning/_:drive/_:device"[1] -v "/dev/sda" master.xml`
-* `cd ~/autoyast_templates/; vim master.xml`
+////
 * Fill the root partition with all of the remaining space on the boot drive:
 ** To find the <partition> element for the root partition, search for the string `<mount>\/<`
 *** Inside that <partition> element (normally below the <mount> subnode), change the value of the <size> subnode to `max`
 **** For example, before the change it might look like: `<size>66561507328</size>` and after the change it will look like: `<size>max</size>`
-
-.Add the software registration information
-* Add the following element at the top, right below <profile ... > 
-----
-  <suse_register>
-    <do_registration config:type="boolean">true</do_registration>
-    <email>MY_EMAIL_ADDRESS</email>
-    <reg_code>MY_CAASP_REGCODE</reg_code>
-    <install_updates config:type="boolean">true</install_updates>
-    <slp_discovery config:type="boolean">false</slp_discovery>
-    <addons config:type="list">
-      <addon>
-        <!-- Containers Module -->
-        <name>sle-module-containers</name>
-        <version>15.1</version>
-        <arch>x86_64</arch>
-      </addon>
-      <addon>
-        <!-- SUSE CaaS Platform -->
-        <!-- Depends on: Containers Module -->
-        <name>caasp</name>
-        <version>4.0</version>
-        <arch>x86_64</arch>
-        <reg_code>MY_CAASP_REGCODE</reg_code>
-      </addon>
-    </addons>
-  </suse_register>
-----
-** Update MY_EMAIL_ADDRESS with the correct email address and MY_CAASP_REGCODE with your registration code
-
-NOTE: A full list of extensions can be found at: https://github.com/yast/yast-registration/wiki/Available-SCC-Extensions-for-Use-in-Autoyast
-
-////
-* Create the XML block to register CaaS Platform 4.0 (doesn't work yet)
-----
-cat <<EOF> reg_code.xml 
-  <suse_register>
-    <do_registration config:type="boolean">true</do_registration>
-    <email>tux@example.com</email>
-    <reg_code>MY_SECRET_REGCODE</reg_code>
-    <install_updates config:type="boolean">true</install_updates>
-    <slp_discovery config:type="boolean">false</slp_discovery>
-    <addons config:type="list">
-      <addon>
-        <!-- Containers Module -->
-        <name>sle-module-containers</name>
-        <version>15.1</version>
-        <arch>x86_64</arch>
-      </addon>
-      <addon>
-        <!-- SUSE CaaS Platform -->
-        <!-- Depends on: Containers Module -->
-        <name>caasp</name>
-        <version>4.0</version>
-        <arch>x86_64</arch>
-        <reg_code>MY_SECRET_REGCODE</reg_code>
-      </addon>
-    </addons>
-  </suse_register>
-EOF
-----
-
 ////
 
+////
 * Add the following element directly above the <services-manager> element:
 
 ----
@@ -253,25 +188,57 @@ EOF
 
 *** Create the /home/geeko/autoyast_post_updates.sh file
 **** ` echo "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko" > /home/geeko/autoyast_templates/autoyast_post_updates.sh `
+////
 
-.AutoYaST install the Master Node
-
-IMPORTANT: The procedure for installing via AutoYaST is slightly different depending on if the target server is configured to boot in (U)EFI mode or Legacy BIOS mode. Be sure to verify the boot mode for a bare-metal server before continuing. Virtual Machines commonly boot in Legacy BIOS mode. For more information, see the SLES15 SP1 AutoYaST guide: https://documentation.suse.com/sles/15-SP1/single-html/SLES-autoyast/#book-autoyast
-
-CAUTION: The steps below assume the Master Node's eth0 has network access to the admin node. If this is not the case, asjusted the "AutoYaST parameters" line below to specify a NIC on the Master Node that has network access to the admin node.
-
-* Provide the SLES 15 SP1 DVD1 installer DVD or ISO to the BIOS of the Master Node
-* Start the Master Node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
+### Install the first Dell R640:
+* Must have access to the Internet, as well as the cluster network and the DNS, NTP, and RMT servers
+* Start the node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/master.xml ifcfg=eth0=<IP of master>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=master.suse.hpc.local`
+*** AutoYaST parameters: `ifcfg=eth0=172.29.145.61/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=mstr1.suse.hpc.local`
+** Format of ifcfg=eth0= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
+* Press Enter
+* Register with the RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Modules")
+* For partitioning, select Guided Setup
+** A separate Home Partition is not needed on any of the CaaS Platform Nodes but can be configured, if desired
+** Keep defaults except deselect "Propose Separate Swap Partition"
 
-.After Master Node completes installation, Adjust its networking to suit the environment 
+CAUTION: Swap is incompatible with Kubernetes.
 
-NOTE: This document demonstrates the procdure for creating a bonded network from eth0
-    and eth1, then assigning the node's IP address to that bond; however, your configuration may be different
+* Create New User:
+** User's Full Name and Username: geeko
 
-** VM based CaaS Platform nodes will likely not need any network modifications
+IMPORTANT: It is recommended to use a secure password that will work with all elements of the PoC environment. Therefore a password should be selected that includes at least one upper case and one lower case letter, one number and at least one of the following three special characters: ! # $
+
+** Select "Use this password for system administrator" 
+* On the final "Installation Settings" screen:
+** Under Security, disable the Firewall
+* Install
+
+
+.Finish preparing the first Dell R640:
+* Enable passwordless sudo for the user geeko
+----
+sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
+----
+* Update the NTP client settings. 
+** `sudo yast timezone`
+*** `other Settings`
+*** `Synchronize with NTP server`
+*** Enter `172.29.202.15` under `NTP Server Access`
+*** `Synchronize now`
+**** Synchronizing with the NTP service will take several seconds but should complete without error
+*** `Run NTP as daemon`
+*** `Save NTP Configuration`
+*** `Accept`, then `OK`
+
+.If needed, adjust the first Dell R640's networking after it completes installation
+
+NOTE: This document demonstrates the procdure for creating a bonded network from em1
+    and em2, then assigning the node's IP address to that bond; however, your configuration may be different
+
+NOTE: VM based CaaS Platform nodes will likely not need any network modifications
+
 * Perform the following steps from the Master Node's console:
 
 TIP: In yast, Tab will help you navigate through panes and options. Each option in yast will have a letter highlighted.
@@ -283,7 +250,7 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 ** `Add -> Device Type -> Bond -> Next`
 ** `(Select Statically Assigned IP Address) -> IP Address -> (input the Master Node's IP address)`
 ** `(Adjust the Subnet Mask, if needed) -> Bonded Slaves -> Yes`
-** `(Select both eth0 and eth1) -> Next`
+** `(Select both em1 and em2) -> Next`
 ** `Routing -> (Ensure the Device for Default IPv4 Gateway is "-") -> OK`
 * Verify networking is functioning correctly:
 ** `ip a`
@@ -295,6 +262,20 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 * `grep swap /etc/fstab`
 ** Should return nothing
 *** If swap is enabled, remote the swap line from the /etc/fstab file and reboot
+
+
+
+.AutoYaST install the Master Node
+
+IMPORTANT: The procedure for installing via AutoYaST is slightly different depending on if the target server is configured to boot in (U)EFI mode or Legacy BIOS mode. Be sure to verify the boot mode for a bare-metal server before continuing. Virtual Machines commonly boot in Legacy BIOS mode. For more information, see the SLES15 SP1 AutoYaST guide: https://documentation.suse.com/sles/15-SP1/single-html/SLES-autoyast/#book-autoyast
+
+
+* Provide the SLES 15 SP1 DVD1 installer DVD or ISO to the BIOS of the Master Node
+* Start the Master Node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
+** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
+** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
+*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/master.xml ifcfg=eth0=<IP of master>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=master.suse.hpc.local`
+
 
 .Add Master Node SSH key to its own authorized_keys file so it will be included in the AutoYaST clone file
 * `ssh-keygen`
