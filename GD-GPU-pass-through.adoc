@@ -66,6 +66,19 @@ https://devblogs.nvidia.com/gpu-containers-runtime/
 The latest NVIDIA driver. Use the package manager to install the cuda-drivers package
 https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#sles-installation
 
+### From https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#pre-installation-actions
+
+* `lspci | grep -i nvidia`
+** Check against: https://developer.nvidia.com/cuda-gpus to ensure the GPU is CUDA compatible
+
+* `uname -m && cat /etc/*release`
+* `gcc --version`
+** `sudo zypper -n install gcc`
+
+* `uname -r`
+** Output is in the form of <version>-<variant>, i.e. 4.12.14-197.26-default
+* `sudo zypper install kernel-default-devel=4.12.14-197.26`
+
                                                                                                                                                   
                                                                                                                                                   
 // vim: set syntax=asciidoc:  
