@@ -60,6 +60,12 @@ vfio_pci
 * `sudo zypper -n install  libvirt libvirt-client libvirt-daemon virt-manager virt-install virt-viewer qemu qemu-kvm qemu-ovmf-x86_64 qemu-tools`
 
 
+### Enabling nvidia-container-runtime
+
+https://devblogs.nvidia.com/gpu-containers-runtime/
+The latest NVIDIA driver. Use the package manager to install the cuda-drivers package
+https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#sles-installation
+
                                                                                                                                                   
                                                                                                                                                   
 // vim: set syntax=asciidoc:  
