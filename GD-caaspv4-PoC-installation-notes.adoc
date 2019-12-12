@@ -4,77 +4,53 @@
 CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST works slightly differently depending on if the server is configured to boot in (U)EFI mode or Legacy BIOS mode. This document attempts to provide the simplest procedures for both cases. 
 
 #### This document is a strictly guided, step-by-step implementation of a specific configuration based on the CaaS Platform v4.0.0 Deployment Guide: https://documentation.suse.com/suse-caasp/4/single-html/caasp-deployment/
-* This specific configuration is based on five nodes:
-** Management Workstation - VM or bare-metal host
-** One CaaS Platform Master Node - VM or bare-metal host
-** Three CaaS Platform Worker Nodes - Must be same as Master Node
+* This specific configuration is based on eight nodes:
+** Management Workstation - VM 
+** Three CaaS Platform Master Nodes - Dell R640 hosts
+** Four CaaS Platform Worker Nodes - Dell R740 hosts
 
 .Overview of this installation procedure:
-* Manually install the SLES15 SP1 on the CaaS Platform Management Workstation
-* Make an AutoYaST clone file of the Management Workstation
-* Update the clone file for some basic differences between the architecture and configuration of the Management Workstation and the CaaS Platform cluster nodes
-* AutoYaST install the Master Node 
-
-TIP: If the differences between the Management Workstation and the CaaS Platform cluster nodes is too complex, it may be quicker and easier to manually install the Master Node, make and update an AutoYaST clone file of it, then use copies of that to install the Worker Nodes.
-
-* Update the (primarily networking) configuration of the Master Node
-* Create an AutoYaST clone file of the Master Node
-* Make and update copies of the Master Node's AutoYast clone file for the Worker Nodes
-* AutoYast install the Master Nodes
-* Install and configure CaaS Platform v4.0.0
+* Create a CaaS Platform Management Workstation VM and manually install the SLES15 SP1
+* Manually install SLES15 SP1 on one of the Dell R640 and one of the Dell R740 hosts and configure bonded networks, as appropriate
+* Make an AutoYaST clone file of each of the Dell hosts
+* AutoYaST install the remaining nodes from the Dell R640 and Dell R740 AutoYaST files, as appropriate
+* Prepare the nodes for forming the CaaS Platform cluster
+* Form the CaaS Platform cluster
+* Update the CaaS Platform cluster as needed for the application
 
 NOTE: Unlike CaaS Platform v3, the Management Workstation for CaaS Platform v4 is not tied in a 1:1 relationship with the CaaS Platform cluster.
       A Management Workstation can be used to deploy one or more CaaS Platform clusters and a CaaS Platform cluster can be managed from the 
       Management Workstation that deployed it and/or another appropriately configured Management Workstation.
 
-CAUTION: This guide can be used as a reference while deploying different configurations, but deviating from the specified design will cause unpredicable results
+CAUTION: This guide can be used as a reference while deploying different configurations, but deviating from the specified design can cause unpredicable results
 
 
-.Required preparation that is not yet covered
-* Establish an IP schema for the cluster. In this document, the Management Workstation (aka admin.caaspv4.com) is 172.16.241.200, the master and three worker nodes are 172.16.241.105-108
+.Required preparation before beginning
+* Establish an IP schema for the cluster. 
 * Populate DNS records that are available to the cluster nodes
+* A local RMT registration server
 
 .Install the Management Workstation:
 
-* Can be a VM, as long as it has access to the Internet and the cluster network
+* Virtual Machine connected to a bridge that has access to the Internet and the cluster network
 * 4 vCPU, 4096MB mem, 20GB qcow2 boot drive in default libvirt location
-
-NOTE: Some platforms do not allow the first GbE network interface to be aliased to eth0. Adjust the alias as appropriate for the network interface that has access to the Internet.
-
 * Booting from ISO: Select "Installation" BUT DO NOT PRESS ENTER
-* On "Boot Options:" line: `ifcfg=eth0=172.16.241.200/24,172.16.241.254,172.16.250.2,caaspv4.com hostname=admin.caaspv4.com`
-** Format of ifcfg=eth0 is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
+* On "Boot Options:" line: `ifcfg=eth0=172.29.145.53/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=kubeadmin.suse.hpc.local`
+** Format of ifcfg=eth0= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
 * Press Enter
-
-IMPORTANT: Use the CaaS Platform subscription key, not the SLES subscription key to register all CaaS Platform nodes, including the Management Workstation
-
-* Use the CaaS Platform subscription key to register SLES 15 SP1
-
-IMPORTANT: This procedured currently does not support registering with an SMT/RMT server
-
-** Enable the following repositories:
-*** SUSE CaaS Platform 4.0 
-**** Should automatically enable Basesystem Module and Containers Module
-*** Desktop Applications Module
-
-NOTE: A desktop environment is not needed for this installation. 
-      If you want a desktop environment on the Management Workstation, all of the CaaS Platform nodes will also have one. 
-      There are ways around this, but they are outside the scope of this document.
-
+* Register with the RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Modules")
 * For partitioning, select Guided Setup
 ** A separate Home Partition is not needed on any of the CaaS Platform Nodes but can be configured, if desired
 ** Keep defaults except deselect "Propose Separate Swap Partition"
-*** Note: Swap will likely not be needed for the Management Workstation
 
-CAUTION: If you choose to create a swap partition for the Management Workstation, you MUST remove it from the AutoYaST clone file for the CaaS Platform nodes. Swap is incompatible with Kubernetes
+NOTE: Swap will likely not be needed for the Management Workstation. Swap can be used on the Management Workstations but it CANNOT be used on the CaaS Platform nodes. Swap is incompatible with Kubernetes.
 
 * Create New User:
-** User's Full Name and Username: sles
-** Select "Use this password for system administrator" and Automatic Login
+** User's Full Name and Username: geeko
 
 IMPORTANT: It is recommended to use a secure password that will work with all elements of the PoC environment. Therefore a password should be selected that includes at least one upper case and one lower case letter, one number and at least one of the following three special characters: ! # $
 
-* Select "Use this password for system administrator", but do not select Automatic Login 
+** Select "Use this password for system administrator" 
 * On the final "Installation Settings" screen:
 ** Under Security, disable the Firewall
 * Install
@@ -375,7 +351,7 @@ TIP: It is recommended to fully install worker1 before continuing to the rest of
 .AutoYaST install the rest of the Worker Nodes
 * Repeat the previous step, "AutoYast install worker1" for each of the remaining Worker Nodes
 
-.Preparation for forming CaaS Platform cluster
+### Preparation for forming CaaS Platform cluster
 
 NOTE: The following commands should be run from the Management Workstation and require a .all_nodes file that contains the fully qualified hostnames of all cluster nodes. Create this file if it doesn't already, before continuing.
  
@@ -397,6 +373,8 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo SUSEConnect -s | egr
 for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo ""; done
 ----
 ** Should return a header line for each node, but nothing else
+
+### Form the CaaS Platform cluster
 
 .For any VM nodes, snapshot before instantiating the cluster
 * Create snapshot
@@ -463,7 +441,7 @@ ssh $EACH /tmp/snap_after_cluster.sh ; echo ""; \
 done
 ----
 
-#### Configure Dex and Gangway
+### Configure Dex and Gangway
 
 .Create the ClusterRoleBinding for the admins group
 * `kubectl create clusterrolebinding ldap-admin-access --clusterrole=cluster-admin --group=admins`
@@ -493,7 +471,17 @@ kubectl get pods -n kube-system -l app=oidc-gangway
 
 ### Configure the Ceph storage class
 
+### Enable Privilege Escalation
 
+.Edit the pod security policy
+* `kubectl edit psp suse.caasp.psp.unprivileged`
+* Add the following elements below `spec:`
+----
+  allowPrivilegeEscalation: true
+  allowedCapabilities:
+  - SYS_PTRACE
+  - NET_ADMIN
+----
 
 
 .Troubleshooting failed bootstrap
