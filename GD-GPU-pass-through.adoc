@@ -1,0 +1,65 @@
+sudo zypper -n in libvirt kvm virt-manager
+echo set -o vi >> ~/.bashrc && . ~/.bashrc
+
+sudo systemctl start libvirtd.service
+
+sudo zypper -n install xorg-x11-Xvnc
+
+sudo usermod -aG libvirt geeko
+
+vncserver :3
+
+
+
+* Add iommu=pt intel_iommu=on  to the GRUB_CMDLINE_LINUX_DEFAULT line in /etc/default/grub
+* `sudo  grub2-mkconfig -o /boot/grub2/grub.cfg`
+
+
+* create /etc/modules-load.d/vfio_pci.conf
+----
+# load vfio_pci module at boot time
+
+vfio_pci
+----
+
+* Reboot the node
+* After the reboot, ensure IOMMU is enabled `sudo dmesg | grep "IOMMU enabled"`
+
+* Run `sudo lspci -nn | less`
+** Search for Nvidia
+* Capture the bus ID in the first column (i.e. 3b:00.0)
+* Capture the VENDOR_ID and PRODUCT_ID, and the bus ID. Bus ID will be at the beginning of the line, VENDOR_ID and PRODUCT_ID will be near the end of line, in brackets and separated by a colon (i.e. [10de:1eb8] )
+
+* Run `sudo lspci -nns <bus ID>`
+
+* Set the variable: BUS_ID=""
+* Run `ls -l /sys/kernel/iommu_groups/*/devices/* | grep $BUS_ID`
+** Capture the group number, i.e. group 33 for `/sys/kernel/iommu_groups/33/devices/0000:3b:00.0`
+
+* Create the file `/etc/modprobe.d/gpu-passthrough.conf`
+** Populate with `options vfio-pci ids=` followed by the VENDOR_ID and PRODUCT_ID
+
+* Create the file `/etc/dracut.conf.d/gpu-passthrough.conf`
+** Populate with `add_drivers+=” pci_stub vfio vfio_iommu_type1 vfio_pci vfio_virqfd kvm kvm_intel “`
+
+* Rebuild initrd: `sudo dracut -f /boot/initrd $(uname -r)`
+
+* Reboot the node
+* After the reboot, verify that the GPU is managed by the kernel driver vfio-pci driver
+** Run `sudo lspci -k | less`
+*** Search for Nvidia
+
+* The GPU is now ready to pass through to a VM
+
+* Use virt-manager to create a VM to use the GPU, or add the GPU by it's bus ID to an existing VM
+** Find it by the name NVIDIA or by the bus ID
+
+* After the VM boots, verify the GPU is present: `sudo lspci -nn | grep -i nvidia`
+
+
+* `sudo zypper -n install  libvirt libvirt-client libvirt-daemon virt-manager virt-install virt-viewer qemu qemu-kvm qemu-ovmf-x86_64 qemu-tools`
+
+
+                                                                                                                                                  
+                                                                                                                                                  
+// vim: set syntax=asciidoc:  
