@@ -35,8 +35,8 @@ CAUTION: This guide can be used as a reference while deploying different configu
 * Virtual Machine connected to a bridge that has access to the Internet and the cluster network
 * 4 vCPU, 4096MB mem, 20GB qcow2 boot drive in default libvirt location
 * Booting from ISO: Select "Installation" BUT DO NOT PRESS ENTER
-* On "Boot Options:" line: `ifcfg=eth0=172.29.145.53/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=kubeadmin.suse.hpc.local`
-** Format of ifcfg=eth0= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
+* On "Boot Options:" line: `ifcfg=em1=172.29.145.53/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=kubeadmin.suse.hpc.local`
+** Format of ifcfg=em1= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
 * Press Enter
 * Register with the RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Modules")
 * For partitioning, select Guided Setup
@@ -195,8 +195,8 @@ CAUTION: The following steps assume that the boot drives for all R640 nodes are 
 * Start the node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `ifcfg=eth0=172.29.145.61/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=mstr1.suse.hpc.local`
-** Format of ifcfg=eth0= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
+*** AutoYaST parameters: `ifcfg=em1=172.29.145.61/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=mstr1.suse.hpc.local`
+** Format of ifcfg=em1= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
 * Press Enter
 * Register with the RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Modules")
 * For partitioning, select Guided Setup
@@ -234,7 +234,7 @@ sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
 
 .If needed, adjust the first Dell R640's networking after it completes installation
 
-NOTE: This document demonstrates the procdure for creating a bonded network from em1
+NOTE: This document demonstrates the procedure for creating a bonded network from em1
     and em2, then assigning the node's IP address to that bond; however, your configuration may be different
 
 NOTE: VM based CaaS Platform nodes will likely not need any network modifications
@@ -245,7 +245,7 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
      Using "Alt" + that letter will directly open that option.
 
 ** `sudo yast lan`
-** `(Use tab and the arrow keys to highlight eth0) -> Delete -> OK`
+** `(Use tab and the arrow keys to highlight em1) -> Delete -> OK`
 ** `sudo yast lan`
 ** `Add -> Device Type -> Bond -> Next`
 ** `(Select Statically Assigned IP Address) -> IP Address -> (input the Master Node's IP address)`
@@ -256,7 +256,7 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 ** `ip a`
 ** `ping opensuse.com`
 
-.Ensure the Master Node does not have swap enabled. Swap is incompatible with Kubernetes
+.Ensure swap is not enabled. Swap is incompatible with Kubernetes
 * `cat /proc/swaps`
 ** Should return a header line, but nothing else
 * `grep swap /etc/fstab`
@@ -264,17 +264,100 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 *** If swap is enabled, remote the swap line from the /etc/fstab file and reboot
 
 
+### Install the first Dell R740:
+* Must have access to the Internet, as well as the cluster network and the DNS, NTP, and RMT servers
+* Start the node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
+** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
+** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
+*** AutoYaST parameters: `ifcfg=em1=172.29.145.71/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=wrkr1.suse.hpc.local`
+** Format of ifcfg=em1= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
+* Press Enter
+* Register with the RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Modules")
+* For partitioning, select Guided Setup
+** A separate Home Partition is not needed on any of the CaaS Platform Nodes but can be configured, if desired
+** Keep defaults except deselect "Propose Separate Swap Partition"
 
-.AutoYaST install the Master Node
+CAUTION: Swap is incompatible with Kubernetes.
 
+* Create New User:
+** User's Full Name and Username: geeko
+
+IMPORTANT: It is recommended to use a secure password that will work with all elements of the PoC environment. Therefore a password should be selected that includes at least one upper case and one lower case letter, one number and at least one of the following three special characters: ! # $
+
+** Select "Use this password for system administrator" 
+* On the final "Installation Settings" screen:
+** Under Security, disable the Firewall
+* Install
+
+
+.Finish preparing the first Dell R740:
+* Enable passwordless sudo for the user geeko
+----
+sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
+----
+* Update the NTP client settings. 
+** `sudo yast timezone`
+*** `other Settings`
+*** `Synchronize with NTP server`
+*** Enter `172.29.202.15` under `NTP Server Access`
+*** `Synchronize now`
+**** Synchronizing with the NTP service will take several seconds but should complete without error
+*** `Run NTP as daemon`
+*** `Save NTP Configuration`
+*** `Accept`, then `OK`
+
+.If needed, adjust the first Dell R740's networking after it completes installation
+
+NOTE: This document demonstrates the procedure for creating a bonded network from em1
+    and em2, then assigning the node's IP address to that bond; however, your configuration may be different
+
+NOTE: VM based CaaS Platform nodes will likely not need any network modifications
+
+* Perform the following steps from the Master Node's console:
+
+TIP: In yast, Tab will help you navigate through panes and options. Each option in yast will have a letter highlighted.
+     Using "Alt" + that letter will directly open that option.
+
+** `sudo yast lan`
+** `(Use tab and the arrow keys to highlight em1) -> Delete -> OK`
+** `sudo yast lan`
+** `Add -> Device Type -> Bond -> Next`
+** `(Select Statically Assigned IP Address) -> IP Address -> (input the Master Node's IP address)`
+** `(Adjust the Subnet Mask, if needed) -> Bonded Slaves -> Yes`
+** `(Select both em1 and em2) -> Next`
+** `Routing -> (Ensure the Device for Default IPv4 Gateway is "-") -> OK`
+* Verify networking is functioning correctly:
+** `ip a`
+** `ping opensuse.com`
+
+.Ensure swap is not enabled. Swap is incompatible with Kubernetes
+* `cat /proc/swaps`
+** Should return a header line, but nothing else
+* `grep swap /etc/fstab`
+** Should return nothing
+*** If swap is enabled, remote the swap line from the /etc/fstab file and reboot
+
+### Create an AutoYaST clone file of the Dell R640 and Dell R740
+
+NOTE: Peform the following steps on each of the two servers
+* `sudo yast2 clone_system`
+** Approve the installation of the autoyast2 package
+* `sudo mv /root/autoinst.xml ~/$(hostname -f).xml`
+* `sudo chown -R geeko:users ~/$(hostname -f).xml`
+* `scp ~/$(hostname -f).xml kubeadmin.suse.hpc.local:~/autoyast_templates/`
+
+## Need to copy the files and adjust the hostnames/IP addresses
+
+### AutoYaST install the second and third Dell R640 servers
+
+NOTE: Perform the following steps on each of the remaining Dell R640 servers
 IMPORTANT: The procedure for installing via AutoYaST is slightly different depending on if the target server is configured to boot in (U)EFI mode or Legacy BIOS mode. Be sure to verify the boot mode for a bare-metal server before continuing. Virtual Machines commonly boot in Legacy BIOS mode. For more information, see the SLES15 SP1 AutoYaST guide: https://documentation.suse.com/sles/15-SP1/single-html/SLES-autoyast/#book-autoyast
-
 
 * Provide the SLES 15 SP1 DVD1 installer DVD or ISO to the BIOS of the Master Node
 * Start the Master Node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/master.xml ifcfg=eth0=<IP of master>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=master.suse.hpc.local`
+*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/master.xml ifcfg=em1=<IP of master>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=master.suse.hpc.local`
 
 
 .Add Master Node SSH key to its own authorized_keys file so it will be included in the AutoYaST clone file
@@ -337,7 +420,7 @@ TIP: It is recommended to fully install worker1 before continuing to the rest of
 * Start the worker1 from DVD ISO,  Select "Installation" at DVD GRuB screen, but DO NOT PRESS ENTER
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key, then provide the AutoYaST parameters, shown below; at the end of the "linuxefi" line. When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/<worker node name>.xml ifcfg=eth0=<IP of worker node>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=<worker node name>.suse.hpc.local
+*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/<worker node name>.xml ifcfg=em1=<IP of worker node>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=<worker node name>.suse.hpc.local
 
 .AutoYaST install the rest of the Worker Nodes
 * Repeat the previous step, "AutoYast install worker1" for each of the remaining Worker Nodes
