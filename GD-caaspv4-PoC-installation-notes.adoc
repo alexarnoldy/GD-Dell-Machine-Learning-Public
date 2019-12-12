@@ -76,29 +76,32 @@ sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
 *** `Save NTP Configuration`
 *** `Accept`, then `OK`
 
-
-.Create an AutoYaST clone file of the Management Workstation
-* `sudo yast2 clone_system`
-** Approve the installation of the autoyast2 package
+.Create a file to reference all of the CaaS Platform cluster nodes
 * `mkdir ~/autoyast_templates`
-* `sudo mv /root/autoinst.xml ~/autoyast_templates/`
-* `sudo chown -R geeko:users ~/autoyast_templates/`
-* `cp ~/autoyast_templates/autoinst.xml ~/autoyast_templates/ses-osd-c.xml`
+----
+cat <<EOF> ~/autoyast_templates/.all_nodes
+mstr1.suse.hpc.local
+mstr2.suse.hpc.local
+mstr3.suse.hpc.local
+wrkr1.suse.hpc.local
+wrkr2.suse.hpc.local
+wrkr3.suse.hpc.local
+wrkr4.suse.hpc.local
+EOF
+----
 
-* Setup Docker and the nginx webserver
-** `sudo zypper -n in docker`
-** `sudo systemctl start docker.service && sudo systemctl enable docker.service`
-*** The output should show that a symlink was created
-** `sudo usermod -aG docker geeko ; sudo su - geeko`
-** Launch nginx webserver container: `docker run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest`
+### Setup podman and the nginx webserver
 
-IMPORTANT: This container WILL NOT automatically start after rebooting the Management Workstation. Use `docker start autoyast-nginx` to start it manually
+** `sudo zypper -n in podman`
+** Launch nginx webserver container: `sudo podman run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest`
+
+IMPORTANT: This container WILL NOT automatically start after rebooting the Management Workstation. Use `sudo podman start autoyast-nginx` to start it manually
 
 * Find the network port used by the nginx container:
-** `docker ps`
+** `sudo podman ps`
 *** The port will listed under PORTS. For example, port 32768 would be indicated with: `0.0.0.0:32768->80/tcp`
 * Set this variable to the nginx port: `NGINX_PORT=""`
-* Test that the master autoyast file is available: `curl http://kubeadmin.suse.hpc.local:$NGINX_PORT/master.xml`
+* Test that files in the autoyast_templates directory are available: `curl http://kubeadmin.suse.hpc.local:$NGINX_PORT/.all_nodes`
 ** The output should display the entire ses-osd-c.xml file
 *** To verify the output, compare the md5sum from each of the following two commands:
 **** `md5sum autoyast_templates/master.xml`
@@ -132,6 +135,15 @@ xml ed -L -d "//_:services-manager/_:services/_:enable/_:service[text()='spice-v
 * If the Master Node boots in Legacy BIOS mode, run this command: `xml ed -L -u "//_:bootloader/_:loader_type" -v grub2 master.xml`
 * If the Master Node boots in (U)EFI mode, run this command: `xml ed -L -u "//_:bootloader/_:loader_type" -v grub2-efi master.xml`
 
+////
+.Create an AutoYaST clone file of the Management Workstation
+* `sudo yast2 clone_system`
+** Approve the installation of the autoyast2 package
+* `mkdir ~/autoyast_templates`
+* `sudo mv /root/autoinst.xml ~/autoyast_templates/`
+* `sudo chown -R geeko:users ~/autoyast_templates/`
+* `cp ~/autoyast_templates/autoinst.xml ~/autoyast_templates/ses-osd-c.xml`
+////
 
 ////
 Manual way of updating hostname and IP address
