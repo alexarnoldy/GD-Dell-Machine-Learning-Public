@@ -30,7 +30,7 @@ CAUTION: This guide can be used as a reference while deploying different configu
 * Populate DNS records that are available to the cluster nodes
 * A local RMT registration server
 
-.Install the Management Workstation:
+### Install the Management Workstation:
 
 * Virtual Machine connected to a bridge that has access to the Internet and the cluster network
 * 4 vCPU, 4096MB mem, 20GB qcow2 boot drive in default libvirt location
@@ -56,11 +56,10 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 * Install
 
 
-
 .Finish preparing the Management workstation:
-* Enable passwordless sudo for the user sles
+* Enable passwordless sudo for the user geeko
 ----
-sudo bash -c "echo 'sles ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01sles"
+sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
 ----
 * The eaisest way to insert the Management Workstation's SSH key into the AutoYaST clone file is to add it to itself before creating the clone file
 ** `ssh-keygen`
@@ -70,8 +69,7 @@ sudo bash -c "echo 'sles ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01sles"
 ** `sudo yast timezone`
 *** `other Settings`
 *** `Synchronize with NTP server`
-**** This example simply accepts the default, public NTP service for the region 
-***** Select a different NTP serer, if available 
+*** Enter `172.29.202.15` under `NTP Server Access`
 *** `Synchronize now`
 **** Synchronizing with the NTP service will take several seconds but should complete without error
 *** `Run NTP as daemon`
@@ -84,15 +82,15 @@ sudo bash -c "echo 'sles ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01sles"
 ** Approve the installation of the autoyast2 package
 * `mkdir ~/autoyast_templates`
 * `sudo mv /root/autoinst.xml ~/autoyast_templates/`
-* `sudo chown -R sles:users ~/autoyast_templates/`
+* `sudo chown -R geeko:users ~/autoyast_templates/`
 * `cp ~/autoyast_templates/autoinst.xml ~/autoyast_templates/ses-osd-c.xml`
 
 * Setup Docker and the nginx webserver
 ** `sudo zypper -n in docker`
 ** `sudo systemctl start docker.service && sudo systemctl enable docker.service`
 *** The output should show that a symlink was created
-** `sudo usermod -aG docker sles ; sudo su - sles`
-** Launch nginx webserver container: `docker run --name autoyast-nginx -v /home/sles/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest`
+** `sudo usermod -aG docker geeko ; sudo su - geeko`
+** Launch nginx webserver container: `docker run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest`
 
 IMPORTANT: This container WILL NOT automatically start after rebooting the Management Workstation. Use `docker start autoyast-nginx` to start it manually
 
@@ -100,7 +98,7 @@ IMPORTANT: This container WILL NOT automatically start after rebooting the Manag
 ** `docker ps`
 *** The port will listed under PORTS. For example, port 32768 would be indicated with: `0.0.0.0:32768->80/tcp`
 * Set this variable to the nginx port: `NGINX_PORT=""`
-* Test that the master autoyast file is available: `curl http://admin.caaspv4.com:$NGINX_PORT/master.xml`
+* Test that the master autoyast file is available: `curl http://kubeadmin.suse.hpc.local:$NGINX_PORT/master.xml`
 ** The output should display the entire ses-osd-c.xml file
 *** To verify the output, compare the md5sum from each of the following two commands:
 **** `md5sum autoyast_templates/master.xml`
@@ -230,7 +228,7 @@ EOF
         <feedback_type/>
         <filename>autoyast_post_updates.sh</filename>
         <interpreter>shell</interpreter>
-        <location><![CDATA[http://admin.caaspv4.com:32768/autoyast_post_updates.sh]]></location>
+        <location><![CDATA[http://kubeadmin.suse.hpc.local:32768/autoyast_post_updates.sh]]></location>
         <notification>Performing_Final_Updates</notification>
         <param-list config:type="list"/>
         <source><![CDATA[]]></source>
@@ -241,8 +239,8 @@ EOF
 ** In the URL above, change the port number `32768` to the port number of your nginx webserver container
 * Save the file and exit vim
 
-*** Create the /home/sles/autoyast_post_updates.sh file
-**** ` echo "echo 'sles ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01sles" > /home/sles/autoyast_templates/autoyast_post_updates.sh `
+*** Create the /home/geeko/autoyast_post_updates.sh file
+**** ` echo "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko" > /home/geeko/autoyast_templates/autoyast_post_updates.sh `
 
 .AutoYaST install the Master Node
 
@@ -254,7 +252,7 @@ CAUTION: The steps below assume the Master Node's eth0 has network access to the
 * Start the Master Node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `autoyast=http://admin.caaspv4.com:<nginx port>/master.xml ifcfg=eth0=<IP of master>/24,<IP of gateway>,<IP of DNS server>,caaspv4.com hostname=master.caaspv4.com`
+*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/master.xml ifcfg=eth0=<IP of master>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=master.suse.hpc.local`
 
 .After Master Node completes installation, Adjust its networking to suit the environment 
 
@@ -295,11 +293,11 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 ** The following steps can be performed from the Master Node's console or an SSH session
 *** `sudo yast2 clone_system`
 *** SCP the AutoYaST file to the Management Workstation. This will overwrite the original master.xml file. Make a copy first, if needed.
-**** ` sudo scp /root/autoinst.xml admin.caaspv4.com:/home/sles/autoyast_templates/master.xml `
+**** ` sudo scp /root/autoinst.xml kubeadmin.suse.hpc.local:/home/geeko/autoyast_templates/master.xml `
 
 .Create copies of the master.xml file for each Worker Node
 
-TIP: Perform the following steps from the Management Workstation as the sles user
+TIP: Perform the following steps from the Management Workstation as the geeko user
 
 * `cd ~/autoyast_templates/`
 * `for EACH in 1 2 3; do cp -p master.xml worker$EACH.xml; done`
@@ -332,7 +330,7 @@ This was the manual way to update hostname and IP address
 .Test that each Worker Node XML file is available through the nginx webserver
 * `docker ps`
 * Set this variable to the port listed under PORTS: `NGINX_PORT=""`
-* Test that each Worker Node autoyast file is available: `for EACH in 1 2 3; do curl http://admin.caaspv4.com:$NGINX_PORT/worker$EACH.xml | egrep "<hostname|ipaddr"; done`
+* Test that each Worker Node autoyast file is available: `for EACH in 1 2 3; do curl http://kubeadmin.suse.hpc.local:$NGINX_PORT/worker$EACH.xml | egrep "<hostname|ipaddr"; done`
 ** Verify each hostname and IP address is correct for each Worker Node
 
 .AutoYaST install worker1
@@ -346,7 +344,7 @@ TIP: It is recommended to fully install worker1 before continuing to the rest of
 * Start the worker1 from DVD ISO,  Select "Installation" at DVD GRuB screen, but DO NOT PRESS ENTER
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key, then provide the AutoYaST parameters, shown below; at the end of the "linuxefi" line. When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `autoyast=http://admin.caaspv4.com:<nginx port>/<worker node name>.xml ifcfg=eth0=<IP of worker node>/24,<IP of gateway>,<IP of DNS server>,caaspv4.com hostname=<worker node name>.caaspv4.com
+*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/<worker node name>.xml ifcfg=eth0=<IP of worker node>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=<worker node name>.suse.hpc.local
 
 .AutoYaST install the rest of the Worker Nodes
 * Repeat the previous step, "AutoYast install worker1" for each of the remaining Worker Nodes
@@ -387,7 +385,7 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo virsh snapshot-creat
 * `sudo zypper -n install -t pattern SUSE-CaaSP-Management`
 * `skuba cluster init --control-plane mstr.suse.hpc.local suse-caasp-hpc`
 ** Note: --control-plane defines the FQDN of the load balancer. The second argument is the name of the cluster.
-* Ensure the SSH Agent is running and has the sles user's RSA key loaded
+* Ensure the SSH Agent is running and has the geeko user's RSA key loaded
 ** `ps -ef | grep ssh-agent`
 *** If this doesn't return an ssh-agent running for the geeko user, run the following commands to start ssh-agent and add the Management Workstation's key:
 **** `eval "$(ssh-agent)"`
