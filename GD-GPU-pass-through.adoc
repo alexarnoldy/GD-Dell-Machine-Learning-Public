@@ -67,6 +67,7 @@ The latest NVIDIA driver. Use the package manager to install the cuda-drivers pa
 https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#sles-installation
 
 ### From https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#pre-installation-actions
+* Also: https://fenix.tecnico.ulisboa.pt/downloadFile/563568428738334/CUDA_Installation_Guide_Linux.pdf
 
 * `lspci | grep -i nvidia`
 ** Check against: https://developer.nvidia.com/cuda-gpus to ensure the GPU is CUDA compatible
@@ -78,6 +79,7 @@ https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#sles-insta
 * `uname -r`
 ** Output is in the form of <version>-<variant>, i.e. 4.12.14-197.26-default
 * `sudo zypper install kernel-default-devel=4.12.14-197.26`
+** Format is sudo zypper install kernel-<variant>-devel=<version>
 
 ----
 sudo zypper addrepo http://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/cuda-sles15.repo
@@ -87,5 +89,13 @@ sudo zypper refresh
 sudo zypper install -y cuda
 ----
                                                                                                                                                   
+* Note that it installed the 10-2 version of every cuda package available except for cuda-compat-10-2
+
+* When the driver is correctly loaded it will show the version in: `cat /proc/driver/nvidia/version`
+
+### From https://hackweek.suse.com/18/projects/architecting-a-machine-learning-project-with-suse-caasp
+
+* "Note I am not installing nvidia-container-runtime, but only the hook. That is because we will use cri-o and not docker. For cri-o we don't need to install the nvidia-container-runtime."
+
                                                                                                                                                   
 // vim: set syntax=asciidoc:  
