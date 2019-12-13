@@ -79,6 +79,13 @@ https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#sles-insta
 ** Output is in the form of <version>-<variant>, i.e. 4.12.14-197.26-default
 * `sudo zypper install kernel-default-devel=4.12.14-197.26`
 
+----
+sudo zypper addrepo http://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/cuda-sles15.repo
+sudo SUSEConnect --product PackageHub/15.1/x86_64
+sudo SUSEConnect --product sle-module-desktop-applications/15.1/x86_64
+sudo zypper refresh
+sudo zypper install -y cuda
+----
                                                                                                                                                   
                                                                                                                                                   
 // vim: set syntax=asciidoc:  
