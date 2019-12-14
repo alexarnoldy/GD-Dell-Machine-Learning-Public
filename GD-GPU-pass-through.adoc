@@ -97,5 +97,14 @@ sudo zypper install -y cuda
 
 * "Note I am not installing nvidia-container-runtime, but only the hook. That is because we will use cri-o and not docker. For cri-o we don't need to install the nvidia-container-runtime."
 
+
+
+### From https://github.com/jordimassaguerpla/SUSE_hackweek_18/blob/master/01-How_to_setup_SUSE_CaaSP_kubernetes_crio_GPU.md
+
+sudo chmod 0666 /dev/nvidia*
+sudo chown root:video /dev/nvidia*
+sudo mkdir -p /usr/libexec/oci/hooks.d/
+sudo cp -p usr/libexec/oci/hooks.d/oci-nvidia-hook /usr/libexec/oci/hooks.d/oci-nvidia-hook
+
                                                                                                                                                   
 // vim: set syntax=asciidoc:  
