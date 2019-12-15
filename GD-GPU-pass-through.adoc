@@ -124,6 +124,7 @@ CUDA version:   XX.Y
 Model:		X
 Brand:		Y
 ----
+
 * Process for installing nvidia-container-toolkit:
 ** Start on the CaaS Platform Admin Workstation
 ----
@@ -134,14 +135,30 @@ yum install --downloadonly nvidia-container-runtime-hook
 cp /var/cache/yum/x86_64/7/nvidia-container-runtime/packages/nvidia-container-toolkit-1.0.5-2.x86_64.rpm /var/tmp
 exit
 ----
-** Create the unrpm script from: https://github.com/openSUSE/obs-build/blob/master/unrpm
+
+*** Create the unrpm script from: https://github.com/openSUSE/obs-build/blob/master/unrpm
+*** Unpack the rpm: `bash unrpm nvidia-container-toolkit-1.0.5-2.x86_64.rpm`
+*** SCP the files to the GPU Worker Node: 
+**** Set this variable to the FQDN of the GPU Worker Nodes `WORKER=""`
+**** Execute these commands:
+----
+ssh $WORKER sudo mkdir -p /etc/nvidia-container-runtime/
+scp etc/nvidia-container-runtime/config.toml root@$WORKER:/etc/nvidia-container-runtime/config.toml 
+scp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json root@$WORKER:/usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
+ssh $WORKER sudo mkdir -p /usr/libexec/oci/hooks.d/
+scp usr/libexec/oci/hooks.d/oci-nvidia-hook root@$WORKER:/usr/libexec/oci/hooks.d/oci-nvidia-hook
+----
+
+** Continue the process on the GPU Worker Node:
+*** Edit  the /etc/nvidia-container-runtime/config.toml file to uncomment or insert the line: `user = "root:video"`
+
+
+
 
 
 
 * `sudo chmod 0666 /dev/nvidia*`
 * `sudo chown root:video /dev/nvidia*`
-* `sudo mkdir -p /usr/libexec/oci/hooks.d/`
-* `sudo cp -p usr/libexec/oci/hooks.d/oci-nvidia-hook /usr/libexec/oci/hooks.d/oci-nvidia-hook`
 
                                                                                                                                                   
 // vim: set syntax=asciidoc:  
