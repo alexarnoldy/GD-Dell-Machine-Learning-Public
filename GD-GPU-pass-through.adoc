@@ -101,10 +101,47 @@ sudo zypper install -y cuda
 
 ### From https://github.com/jordimassaguerpla/SUSE_hackweek_18/blob/master/01-How_to_setup_SUSE_CaaSP_kubernetes_crio_GPU.md
 
-sudo chmod 0666 /dev/nvidia*
-sudo chown root:video /dev/nvidia*
-sudo mkdir -p /usr/libexec/oci/hooks.d/
-sudo cp -p usr/libexec/oci/hooks.d/oci-nvidia-hook /usr/libexec/oci/hooks.d/oci-nvidia-hook
+* `sudo usermod -G video -a geeko`
+* `sudo usermod -G video -a root`
+* `sudo su - geeko`
+* `nvidia-smi`
+** Should get an output that contains:
+----
+NVIDIA-SMI XXX.YY Driver Version: XXX.YY CUDA Version: XX.Y
+. . . .
+No running processes found
+----
+
+* `wget https://github.com/NVIDIA/libnvidia-container/releases/download/v1.0.0/libnvidia-container_1.0.0_x86_64.tar.xz`
+* `tar xJf libnvidia-container_1.0.0_x86_64.tar.xz`
+* `sudo cp libnvidia-container_1.0.0/usr/local/bin/nvidia-container-cli /usr/bin`
+* `sudo cp libnvidia-container_1.0.0/usr/local/lib/libnvidia-container.so* /usr/lib64`
+* `nvidia-container-cli info`
+** Should get an output that contains:
+----
+NVRM version:   XXX.YY                                                          
+CUDA version:   XX.Y  
+Model:		X
+Brand:		Y
+----
+* Process for installing nvidia-container-toolkit:
+** Start on the CaaS Platform Admin Workstation
+----
+podman run -ti -v$PWD:/var/tmp centos:7
+DIST=$(. /etc/os-release; echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-container-runtime/$DIST/nvidia-container-runtime.repo |    tee /etc/yum.repos.d/nvidia-container-runtime.repo
+yum install --downloadonly nvidia-container-runtime-hook
+cp /var/cache/yum/x86_64/7/nvidia-container-runtime/packages/nvidia-container-toolkit-1.0.5-2.x86_64.rpm /var/tmp
+exit
+----
+** Create the unrpm script from: https://github.com/openSUSE/obs-build/blob/master/unrpm
+
+
+
+* `sudo chmod 0666 /dev/nvidia*`
+* `sudo chown root:video /dev/nvidia*`
+* `sudo mkdir -p /usr/libexec/oci/hooks.d/`
+* `sudo cp -p usr/libexec/oci/hooks.d/oci-nvidia-hook /usr/libexec/oci/hooks.d/oci-nvidia-hook`
 
                                                                                                                                                   
 // vim: set syntax=asciidoc:  
