@@ -1,5 +1,5 @@
 ### CURRENT STAGE OF THIS DOCUMENT: Rapidly changing (again), possibly incomplete, likely brittle do to lots of automation based on this specific configuration
-#### Last updated: 2019.12.10, early AM PDT
+#### Last updated: 2019.12.17, early AM PDT
 
 CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST works slightly differently depending on if the server is configured to boot in (U)EFI mode or Legacy BIOS mode. This document attempts to provide the simplest procedures for both cases. 
 
@@ -16,7 +16,7 @@ CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST wo
 * AutoYaST install the remaining nodes from the Dell R640 and Dell R740 AutoYaST files, as appropriate
 * Prepare the nodes for forming the CaaS Platform cluster
 * Form the CaaS Platform cluster
-* Update the CaaS Platform cluster as needed for the application
+* Update the CaaS Platform cluster as needed for the application, optionally including performing GPU integration
 
 NOTE: Unlike CaaS Platform v3, the Management Workstation for CaaS Platform v4 is not tied in a 1:1 relationship with the CaaS Platform cluster.
       A Management Workstation can be used to deploy one or more CaaS Platform clusters and a CaaS Platform cluster can be managed from the 
@@ -152,7 +152,9 @@ Manual way of updating hostname and IP address
 ***** Change the IP address to that of the master. In this document it is 172.16.241.105
 ////
 
+////
 .Update the correct boot drive for the Master Node
+////
 
 CAUTION: The following steps assume that the boot drives for all R640 nodes are configured identically. If case, edit the AutoYaST file manually to set the correct boot drive
 
@@ -311,9 +313,11 @@ sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
 NOTE: This document demonstrates the procedure for creating a bonded network from em1
     and em2, then assigning the node's IP address to that bond; however, your configuration may be different
 
+////
 NOTE: VM based CaaS Platform nodes will likely not need any network modifications
+////
 
-* Perform the following steps from the Master Node's console:
+* Perform the following steps from the Dell R740's console:
 
 TIP: In yast, Tab will help you navigate through panes and options. Each option in yast will have a letter highlighted.
      Using "Alt" + that letter will directly open that option.
@@ -328,7 +332,7 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 ** `Routing -> (Ensure the Device for Default IPv4 Gateway is "-") -> OK`
 * Verify networking is functioning correctly:
 ** `ip a`
-** `ping opensuse.com`
+** `ping opensuse.org`
 
 .Ensure swap is not enabled. Swap is incompatible with Kubernetes
 * `cat /proc/swaps`
@@ -339,7 +343,7 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 
 ### Create an AutoYaST clone file of the Dell R640 and Dell R740
 
-NOTE: Peform the following steps on each of the two servers
+NOTE: Peform the following steps on each of the two installed servers
 * `sudo yast2 clone_system`
 ** Approve the installation of the autoyast2 package
 * `sudo mv /root/autoinst.xml ~/$(hostname -f).xml`
@@ -350,7 +354,7 @@ NOTE: Peform the following steps on each of the two servers
 
 ### AutoYaST install the remaining Dell R640 and R740 servers
 
-NOTE: Perform the following steps on each of the remaining Dell R640 servers, adjusting the IP address and hostname portions of the AutoYaST parameters below
+NOTE: Perform the following steps on each of the remaining Dell servers, adjusting the IP address and hostname portions of the AutoYaST parameters below
 
 IMPORTANT: The procedure for installing via AutoYaST is slightly different depending on if the target server is configured to boot in (U)EFI mode or Legacy BIOS mode. Be sure to verify the boot mode for a bare-metal server before continuing. Virtual Machines commonly boot in Legacy BIOS mode. For more information, see the SLES15 SP1 AutoYaST guide: https://documentation.suse.com/sles/15-SP1/single-html/SLES-autoyast/#book-autoyast
 
@@ -358,7 +362,7 @@ IMPORTANT: The procedure for installing via AutoYaST is slightly different depen
 * Start the Master Node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/master.xml ifcfg=em1=<IP of master>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=master.suse.hpc.local`
+*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/<node name>.xml ifcfg=em1=<node IP address>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=<node name>.suse.hpc.local`
 
 
 .Add Master Node SSH key to its own authorized_keys file so it will be included in the AutoYaST clone file
@@ -449,15 +453,16 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo "";
 ----
 ** Should return a header line for each node, but nothing else
 
-### Form the CaaS Platform cluster
+### Bootstrap the CaaS Platform cluster
 
+////
 .For any VM nodes, snapshot before instantiating the cluster
 * Create snapshot
 ----
 for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo virsh snapshot-create-as $EACH --name "before forming cluster"; echo ""; done
 ----
+////
 
-.Bootstrap the cluster
 * On the Management Workstation:
 * `sudo zypper -n install -t pattern SUSE-CaaSP-Management`
 * `skuba cluster init --control-plane mstr.suse.hpc.local suse-caasp-hpc`
@@ -471,8 +476,21 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo virsh snapshot-creat
 * `skuba node bootstrap --user geeko --sudo --target mstr1.suse.hpc.local mstr1`
 ** Note this command bootstraps the CaaS Platform cluster with mstr1.suse.hpc.local as the first master node. Internally, Kubernetes will assign this node the name "mstr1"
 
-.Join the remaining Master Nodes to the cluster
+### Join additional Master Nodes to the cluster
+* To join a single Master Node to the cluster:
 ----
+eval "$(ssh-agent)"
+ssh-add /home/geeko/.ssh/id_rsa
+export MASTER_FQDN=
+MASTER=`echo $MASTER_FQDN | awk -F. '{print$1}'`; \
+skuba node join --role master --user geeko --sudo \
+--target $MASTER_FQDN $MASTER
+----
+
+* To join all remainging Master Nodes in the .all_nodes file:
+----
+eval "$(ssh-agent)"
+ssh-add /home/geeko/.ssh/id_rsa
 for MASTER_FQDN in `grep mstr .all_nodes | tail -n+2`; do \
 MASTER=`echo $MASTER_FQDN | awk -F. '{print$1}'`; \
 skuba node join --role master --user geeko --sudo \
@@ -480,8 +498,21 @@ skuba node join --role master --user geeko --sudo \
 done
 ----
 
-.Join the Worker Nodes to the cluster
+### Join Worker Nodes to the cluster
+* To join a single Worker Node to the cluster:
 ----
+eval "$(ssh-agent)"
+ssh-add /home/geeko/.ssh/id_rsa
+export WORKER_FQDN=
+WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; \
+skuba node join --role worker --user geeko --sudo \
+--target $WORKER_FQDN $WORKER
+----
+
+* To join all remainging Worker Nodes in the .all_nodes file:
+----
+eval "$(ssh-agent)"
+ssh-add /home/geeko/.ssh/id_rsa
 for WORKER_FQDN in `grep wrkr .all_nodes`; do \
 WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; \
 skuba node join --role worker --user geeko --sudo \
@@ -498,6 +529,7 @@ done
 * `. ~/.bashrc` 
 * `kubectl get nodes`
 
+////
 .For any VM nodes, snapshot immediately after instantiating the cluster
 * Create snapshot script
 ----
@@ -515,6 +547,7 @@ echo $EACH; scp /tmp/snap_after_cluster.sh $EACH:/tmp; \
 ssh $EACH /tmp/snap_after_cluster.sh ; echo ""; \
 done
 ----
+////
 
 ### Configure Dex and Gangway
 
@@ -557,6 +590,8 @@ kubectl get pods -n kube-system -l app=oidc-gangway
   - SYS_PTRACE
   - NET_ADMIN
 ----
+
+### Enable GPU availability for CaaS Platform
 
 
 .Troubleshooting failed bootstrap
