@@ -213,5 +213,41 @@ sudo chown root:video /dev/nvidia*
 .Install the Nvidia Kubernetes device plugin from the Administrative Workstation
 * `kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/1.0.0-beta/nvidia-device-plugin.yml`
 
+
+* Set this variable for the next several commands: `export WORKER=`
+
+* Ensure the correct number of GPUs are recognized on the worker node: `kubectl describe node $WORKER | egrep "gpu|Unschedulable"`
+** Output should include three lines beginning with `nvidia.com/gpu`. The first two should match the number of GPUs on the node. The last line should show quanties zero
+
+NOTE: If the previous command also showed `Unschedulable` as `true`, uncordon the node before continuing: `kubectl uncordon $WORKER`
+
+* Ensure that CaaS Platform can run a GPU enabled pod on the node:
+
+* Set this variable to the number of GPUs on this node: `export GPUS=`
+* Create the cuda-vector-add.yaml file:
+----
+cat <<EOF> cuda-vector-add.yaml
+apiVersion: v1                                                                  
+kind: Pod                                                                       
+metadata:                                                                       
+  name: cuda-vector-add                                                         
+spec:                                                                           
+  restartPolicy: OnFailure                                                      
+  nodeSelector:
+    kubernetes.io/hostname: $WORKER
+  containers:                                                                   
+    - name: cuda-vector-add                                                     
+      # https://github.com/kubernetes/kubernetes/blob/v1.7.11/test/images/nvidia-cuda/Dockerfile
+      image: "k8s.gcr.io/cuda-vector-add:v0.1"                                  
+      resources:                                                                
+        limits:                                                                 
+          nvidia.com/gpu: $GPUS
+EOF
+----
+
+* Apply the pod creation file and review the pod's logs and node assignment: `kubectl apply -f cuda-vector-add.yaml && kubectl logs cuda-vector-add && kubectl get pods -o wide | grep cuda-vector-add`
+** Output should include phrases such as `CUDA kernel launch` and `Test PASSED`, as well as show that the pod ran on this node
+* Remove the pod: `kubectl delete -f cuda-vector-add.yaml`
+
                                                                                                                                                   
 // vim: set syntax=asciidoc:  

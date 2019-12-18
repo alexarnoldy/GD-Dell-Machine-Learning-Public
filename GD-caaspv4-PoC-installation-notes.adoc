@@ -746,8 +746,7 @@ EOF
 
 * Apply the pod creation file and review the pod's logs and node assignment: `kubectl apply -f cuda-vector-add.yaml && kubectl logs cuda-vector-add && kubectl get pods -o wide | grep cuda-vector-add`
 ** Output should include phrases such as `CUDA kernel launch` and `Test PASSED`, as well as show that the pod ran on this node
-
-
+* Remove the pod: `kubectl delete -f cuda-vector-add.yaml`
 
 
 
