@@ -498,6 +498,8 @@ skuba node join --role master --user geeko --sudo \
 done
 ----
 
+IMPORTANT: If any nodes will require additional configuration such as GPU integration, use the command `kubectl cordon <node name>` to prevent work from being assigned to it until it is ready.
+
 ### Join Worker Nodes to the cluster
 * To join a single Worker Node to the cluster:
 ----
@@ -519,6 +521,9 @@ skuba node join --role worker --user geeko --sudo \
 --target $WORKER_FQDN $WORKER; \
 done
 ----
+
+IMPORTANT: If any nodes will require additional configuration such as GPU integration, use the command `kubectl cordon <node name>` to prevent work from being assigned to it until it is ready.
+
 
 .Verify the status of the cluster
 * `cd /home/geeko/suse-caasp-hpc`
@@ -548,6 +553,8 @@ ssh $EACH /tmp/snap_after_cluster.sh ; echo ""; \
 done
 ----
 ////
+
+
 
 ### Configure Dex and Gangway
 
@@ -579,7 +586,9 @@ kubectl get pods -n kube-system -l app=oidc-gangway
 
 ### Configure the Ceph storage class
 
-### Enable Privilege Escalation
+
+
+### Enable privilege escalation on CaaS Platform
 
 .Edit the pod security policy
 * `kubectl edit psp suse.caasp.psp.unprivileged`
@@ -591,10 +600,27 @@ kubectl get pods -n kube-system -l app=oidc-gangway
   - NET_ADMIN
 ----
 
+
+
 ### Enable GPU availability for CaaS Platform
 
+.Start on the Nvidia GPU equiped Worker Node
 
-.Troubleshooting failed bootstrap
+* Verify the model of Nvidia GPU:
+* `sudo lspci | grep -i nvidia`
+** Check against: https://developer.nvidia.com/cuda-gpus to ensure the GPU is CUDA compatible
+
+
+
+
+
+
+
+
+
+### Troubleshooting Section
+
+.Troubleshoot a failed bootstrap
 * ssh to master and `sudo less /var/log/messages` 
 * Search for kub
 * Follow the progression of the skuba command and kubeadm
