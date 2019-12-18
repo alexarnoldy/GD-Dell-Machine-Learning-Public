@@ -79,20 +79,23 @@ https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#sles-insta
 
 * `uname -r`
 ** Output is in the form of <version>-<variant>, i.e. 4.12.14-197.26-default
-* `sudo zypper install kernel-default-devel=4.12.14-197.26`
-** Format is sudo zypper install kernel-<variant>-devel=<version>
+* `sudo zypper --non-interactive install kernel-default-devel=4.12.14-197.26`
+** Format is sudo zypper --non-interactive install kernel-<variant>-devel=<version>
 
 ----
 sudo zypper addrepo http://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/cuda-sles15.repo
 sudo SUSEConnect --product PackageHub/15.1/x86_64
 sudo SUSEConnect --product sle-module-desktop-applications/15.1/x86_64
-sudo zypper refresh
-sudo zypper install -y cuda
+sudo zypper refresh	# May require "trust always" the "package signing key"
+sudo zypper --non-interactive install cuda
 ----
                                                                                                                                                   
 * Note that it installed the 10-2 version of every cuda package available except for cuda-compat-10-2
 
+* Verify which versions of software were installed `sudo zypper search cuda`
+
 * When the driver is correctly loaded it will show the version in: `cat /proc/driver/nvidia/version`
+** If the driver hasn't loaded, reboot the node and check again
 
 ### From https://hackweek.suse.com/18/projects/architecting-a-machine-learning-project-with-suse-caasp
 
@@ -102,10 +105,13 @@ sudo zypper install -y cuda
 
 ### From https://github.com/jordimassaguerpla/SUSE_hackweek_18/blob/master/01-How_to_setup_SUSE_CaaSP_kubernetes_crio_GPU.md
 
-* `sudo usermod -G video -a geeko`
-* `sudo usermod -G video -a root`
-* `sudo su - geeko`
-* `nvidia-smi`
+* Check that you can communicate with the GPU:
+----
+sudo usermod -G video -a geeko
+sudo usermod -G video -a root
+sudo su - geeko
+nvidia-smi
+----
 ** Should get an output that contains:
 ----
 NVIDIA-SMI XXX.YY Driver Version: XXX.YY CUDA Version: XX.Y
@@ -129,19 +135,22 @@ Brand:		Y
 * Process for installing nvidia-container-toolkit:
 ** Start on the CaaS Platform Admin Workstation
 ----
-podman run -ti -v$PWD:/var/tmp centos:7
+sudo zypper --non-interactive install podman
+sudo podman run -ti -v$PWD:/var/tmp centos:7
 DIST=$(. /etc/os-release; echo $ID$VERSION_ID)
 curl -s -L https://nvidia.github.io/nvidia-container-runtime/$DIST/nvidia-container-runtime.repo |    tee /etc/yum.repos.d/nvidia-container-runtime.repo
-yum install --downloadonly nvidia-container-runtime-hook
+yum install --downloadonly nvidia-container-runtime-hook	# May have answer "y" to accept Nvidia's GPG key
 cp /var/cache/yum/x86_64/7/nvidia-container-runtime/packages/nvidia-container-toolkit-1.0.5-2.x86_64.rpm /var/tmp
 exit
 ----
 
 *** Create the unrpm script from: https://github.com/openSUSE/obs-build/blob/master/unrpm
 *** Unpack the rpm: `bash unrpm nvidia-container-toolkit-1.0.5-2.x86_64.rpm`
-*** SCP the files to the GPU Worker Node: 
+*** If running this on another node (i.e. the Administrative Workstation), SCP the files to the GPU Worker Node: 
 **** Set this variable to the FQDN of the GPU Worker Nodes `WORKER=""`
 **** Execute these commands:
+
+////
 ----
 ssh $WORKER sudo mkdir -p /etc/nvidia-container-runtime/
 scp etc/nvidia-container-runtime/config.toml root@$WORKER:/etc/nvidia-container-runtime/config.toml 
@@ -149,17 +158,28 @@ scp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json root@$WORKER:/usr/shar
 ssh $WORKER sudo mkdir -p /usr/libexec/oci/hooks.d/
 scp usr/libexec/oci/hooks.d/oci-nvidia-hook root@$WORKER:/usr/libexec/oci/hooks.d/oci-nvidia-hook
 ----
+////
 
-** Continue the process on the GPU Worker Node:
-*** Edit  the /etc/nvidia-container-runtime/config.toml file to uncomment or insert the line: `user = "root:video"`
+----
+scp etc/nvidia-container-runtime/config.toml $WORKER:~/etc/nvidia-container-runtime/config.toml
+scp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json $WORKER:~/usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
+scp usr/libexec/oci/hooks.d/oci-nvidia-hook $WORKER:~/usr/libexec/oci/hooks.d/oci-nvidia-hook
+----
 
-
-
-
-
+.Continue the process on the GPU Worker Node:
+* `sudo mkdir -p /etc/nvidia-container-runtime/`
+* `sudo mkdir -p /usr/libexec/oci/hooks.d/`
+* `sudo cp etc/nvidia-container-runtime/config.toml /etc/nvidia-container-runtime/config.toml`
+* `sudo cp usr/bin/nvidia-container-toolkit /usr/bin/nvidia-container-toolkit`
+* `sudo cp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json`
+* `sudo cp usr/libexec/oci/hooks.d/oci-nvidia-hook /usr/libexec/oci/hooks.d/oci-nvidia-hook`
+* Edit  the /etc/nvidia-container-runtime/config.toml file to uncomment or insert the line: `user = "root:video"`
 
 * `sudo chmod 0666 /dev/nvidia*`
 * `sudo chown root:video /dev/nvidia*`
+
+.Install the Nvidia Kubernetes device plugin from the Administrative Workstation
+* `kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/1.0.0-beta/nvidia-device-plugin.yml`
 
                                                                                                                                                   
 // vim: set syntax=asciidoc:  
