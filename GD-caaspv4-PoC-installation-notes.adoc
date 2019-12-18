@@ -13,16 +13,11 @@ CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST wo
 . <<anchor-10>>
 . <<anchor-20>>
 . <<anchor-30>>
-. <<anchor-35>>
 . <<anchor-40>>
 . <<anchor-50>>
-. <<anchor-55>>
 . <<anchor-60>>
-. <<anchor-65>>
 . <<anchor-70>>
 . <<anchor-80>>
-* Create a CaaS Platform Management Workstation VM and install SLES15 SP1
-* Install SLES15 SP1 on the first of each type of node to be used in the cluster (i.e. Dell R640 and Dell R740)
 * Make an AutoYaST clone file of each of the Dell hosts
 * AutoYaST install the remaining nodes from the AutoYaST files
 * Prepare the nodes for forming the CaaS Platform cluster
@@ -100,7 +95,7 @@ wrkr4.suse.hpc.local
 EOF
 ----
 
-### Setup podman and the nginx webserver
+.Setup podman and the nginx webserver
 
 ** `sudo zypper -n in podman`
 ** Launch nginx webserver container: `sudo podman run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest`
@@ -168,9 +163,9 @@ Manual way of updating hostname and IP address
 .Update the correct boot drive for the Master Node
 ////
 
+////
 CAUTION: The following steps assume that the boot drives for all R640 nodes are configured identically. If case, edit the AutoYaST file manually to set the correct boot drive
 
-////
 * Fill the root partition with all of the remaining space on the boot drive:
 ** To find the <partition> element for the root partition, search for the string `<mount>\/<`
 *** Inside that <partition> element (normally below the <mount> subnode), change the value of the <size> subnode to `max`
@@ -204,16 +199,17 @@ CAUTION: The following steps assume that the boot drives for all R640 nodes are 
 **** ` echo "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko" > /home/geeko/autoyast_templates/autoyast_post_updates.sh `
 ////
 
-### Install the first Dell R640:
-* Must have access to the Internet, as well as the cluster network and the DNS, NTP, and RMT servers
+[[anchor-20]]
+==== Install SLES15 SP1 on the first of each type of node to be used in the cluster (i.e. Dell R640 and Dell R740)
+* Nodes must have access to the Internet, as well as the cluster network; and the DNS, NTP, and RMT servers
 * Start the node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
-** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
-** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `ifcfg=em1=172.29.145.61/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=mstr1.suse.hpc.local`
-** Format of ifcfg=em1= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
-* Press Enter
-* Register with the RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Modules")
+** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, as shown below. When ready, press Enter to boot the system.
+** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters as shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
+*** AutoYaST parameters: `ifcfg=em1=<node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain> hostname=<FQDN of node>`
+** For example: ifcfg=em1=172.29.145.61/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=mstr1.suse.hpc.local`
+* Register with the RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Modules" to see it)
 * For partitioning, select Guided Setup
+** For best performance select XFS filesystem for the root partition
 ** A separate Home Partition is not needed on any of the CaaS Platform Nodes but can be configured, if desired
 ** Keep defaults except deselect "Propose Separate Swap Partition"
 
@@ -230,7 +226,7 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 * Install
 
 
-.Finish preparing the first Dell R640:
+.Finish preparing the first Dell servers:
 * Enable passwordless sudo for the user geeko
 ----
 sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
@@ -246,14 +242,14 @@ sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
 *** `Save NTP Configuration`
 *** `Accept`, then `OK`
 
-.If needed, adjust the first Dell R640's networking after it completes installation
+.If needed, adjust the first Dell servers' networking after they complete installation
 
 NOTE: This document demonstrates the procedure for creating a bonded network from em1
     and em2, then assigning the node's IP address to that bond; however, your configuration may be different
 
-NOTE: VM based CaaS Platform nodes will likely not need any network modifications
+NOTE: Peform the following steps on each of the two installed servers
 
-* Perform the following steps from the Master Node's console:
+TIP: Perform the following steps from the server's console
 
 TIP: In yast, Tab will help you navigate through panes and options. Each option in yast will have a letter highlighted.
      Using "Alt" + that letter will directly open that option.
@@ -262,7 +258,7 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 ** `(Use tab and the arrow keys to highlight em1) -> Delete -> OK`
 ** `sudo yast lan`
 ** `Add -> Device Type -> Bond -> Next`
-** `(Select Statically Assigned IP Address) -> IP Address -> (input the Master Node's IP address)`
+** `(Select Statically Assigned IP Address) -> IP Address -> (input the server's IP address)`
 ** `(Adjust the Subnet Mask, if needed) -> Bonded Slaves -> Yes`
 ** `(Select both em1 and em2) -> Next`
 ** `Routing -> (Ensure the Device for Default IPv4 Gateway is "-") -> OK`
@@ -277,85 +273,11 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 ** Should return nothing
 *** If swap is enabled, remote the swap line from the /etc/fstab file and reboot
 
-
-### Install the first Dell R740:
-* Must have access to the Internet, as well as the cluster network and the DNS, NTP, and RMT servers
-* Start the node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
-** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
-** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `ifcfg=em1=172.29.145.71/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=wrkr1.suse.hpc.local`
-** Format of ifcfg=em1= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
-* Press Enter
-* Register with the RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Modules")
-* For partitioning, select Guided Setup
-** A separate Home Partition is not needed on any of the CaaS Platform Nodes but can be configured, if desired
-** Keep defaults except deselect "Propose Separate Swap Partition"
-
-CAUTION: Swap is incompatible with Kubernetes.
-
-* Create New User:
-** User's Full Name and Username: geeko
-
-IMPORTANT: It is recommended to use a secure password that will work with all elements of the PoC environment. Therefore a password should be selected that includes at least one upper case and one lower case letter, one number and at least one of the following three special characters: ! # $
-
-** Select "Use this password for system administrator" 
-* On the final "Installation Settings" screen:
-** Under Security, disable the Firewall
-* Install
-
-
-.Finish preparing the first Dell R740:
-* Enable passwordless sudo for the user geeko
-----
-sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
-----
-* Update the NTP client settings. 
-** `sudo yast timezone`
-*** `other Settings`
-*** `Synchronize with NTP server`
-*** Enter `172.29.202.15` under `NTP Server Access`
-*** `Synchronize now`
-**** Synchronizing with the NTP service will take several seconds but should complete without error
-*** `Run NTP as daemon`
-*** `Save NTP Configuration`
-*** `Accept`, then `OK`
-
-.If needed, adjust the first Dell R740's networking after it completes installation
-
-NOTE: This document demonstrates the procedure for creating a bonded network from em1
-    and em2, then assigning the node's IP address to that bond; however, your configuration may be different
-
-////
-NOTE: VM based CaaS Platform nodes will likely not need any network modifications
-////
-
-* Perform the following steps from the Dell R740's console:
-
-TIP: In yast, Tab will help you navigate through panes and options. Each option in yast will have a letter highlighted.
-     Using "Alt" + that letter will directly open that option.
-
-** `sudo yast lan`
-** `(Use tab and the arrow keys to highlight em1) -> Delete -> OK`
-** `sudo yast lan`
-** `Add -> Device Type -> Bond -> Next`
-** `(Select Statically Assigned IP Address) -> IP Address -> (input the Master Node's IP address)`
-** `(Adjust the Subnet Mask, if needed) -> Bonded Slaves -> Yes`
-** `(Select both em1 and em2) -> Next`
-** `Routing -> (Ensure the Device for Default IPv4 Gateway is "-") -> OK`
-* Verify networking is functioning correctly:
-** `ip a`
-** `ping opensuse.org`
-
-.Ensure swap is not enabled. Swap is incompatible with Kubernetes
-* `cat /proc/swaps`
-** Should return a header line, but nothing else
-* `grep swap /etc/fstab`
-** Should return nothing
-*** If swap is enabled, remote the swap line from the /etc/fstab file and reboot
-
-### Create an AutoYaST clone file of the Dell R640 and Dell R740
+[[anchor-30]]
+==== Create an AutoYaST clone file of the first Dell R640 and Dell R740 servers
 
 NOTE: Peform the following steps on each of the two installed servers
+
 * `sudo yast2 clone_system`
 ** Approve the installation of the autoyast2 package
 * `sudo mv /root/autoinst.xml ~/$(hostname -f).xml`
