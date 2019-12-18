@@ -10,7 +10,10 @@ sudo usermod -aG libvirt geeko
 vncserver :3
 
 
-### For GPU pass-through
+### For GPU pass-through to VM
+
+* Ensure all of the required tools are installed:
+** `sudo zypper --non-interactive install  libvirt libvirt-client libvirt-daemon virt-manager virt-install virt-viewer qemu qemu-kvm qemu-ovmf-x86_64 qemu-tools`
 
 * Add iommu=pt intel_iommu=on  to the GRUB_CMDLINE_LINUX_DEFAULT line in /etc/default/grub
 * `sudo  grub2-mkconfig -o /boot/grub2/grub.cfg`
@@ -58,10 +61,11 @@ vfio_pci
 * After the VM boots, verify the GPU is present: `sudo lspci -nn | grep -i nvidia`
 
 
-* `sudo zypper -n install  libvirt libvirt-client libvirt-daemon virt-manager virt-install virt-viewer qemu qemu-kvm qemu-ovmf-x86_64 qemu-tools`
 
 
 ### Enabling nvidia-container-runtime
+
+.Start on the GPU equiped Worker Node
 
 https://devblogs.nvidia.com/gpu-containers-runtime/
 The latest NVIDIA driver. Use the package manager to install the cuda-drivers package
@@ -73,15 +77,22 @@ https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#sles-insta
 * `sudo lspci | grep -i nvidia`
 ** Check against: https://developer.nvidia.com/cuda-gpus to ensure the GPU is CUDA compatible
 
-* `uname -m && cat /etc/*release`
+* The CUDA Development Tools are only supported on some specific distributions of Linux. These are listed in the CUDA Toolkit release notes.
+* Determine the Linux distribution and release: `uname -m && cat /etc/*release`
+
+////
+Instructions say gcc is only required for development but I haven't tested a deployment without it
 * `gcc --version`
 ** If gcc is not installed: `sudo zypper --non-interactive install gcc`
+////
 
+.Install the appropriate kernel header files for the kernel version
 * `uname -r`
 ** Output is in the form of <version>-<variant>, i.e. 4.12.14-197.26-default
 * `sudo zypper --non-interactive install kernel-default-devel=4.12.14-197.26`
 ** Format is sudo zypper --non-interactive install kernel-<variant>-devel=<version>
 
+* Install the Cuda toolkit:
 ----
 sudo zypper addrepo http://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/cuda-sles15.repo
 sudo SUSEConnect --product PackageHub/15.1/x86_64
@@ -90,9 +101,11 @@ sudo zypper refresh	# May require "trust always" the "package signing key"
 sudo zypper --non-interactive install cuda
 ----
                                                                                                                                                   
-* Note that it installed the 10-2 version of every cuda package available except for cuda-compat-10-2
+////
+Noticed that it installed the 10-2 version of every cuda package available except for cuda-compat-10-2
+////
 
-* Verify which versions of software were installed `sudo zypper search cuda`
+* Verify which packages and versions of the Cuda toolkit were installed `sudo zypper search cuda`
 
 * When the driver is correctly loaded it will show the version in: `cat /proc/driver/nvidia/version`
 ** If the driver hasn't loaded, reboot the node and check again
@@ -132,8 +145,11 @@ Model:		X
 Brand:		Y
 ----
 
-* Process for installing nvidia-container-toolkit:
-** Start on the CaaS Platform Admin Workstation
+### Install nvidia-container-toolkit on any nodes equiped with GPUs
+
+.Start on the CaaS Platform Administrative Workstation
+
+* Download the required package via a CentOS container:
 ----
 sudo zypper --non-interactive install podman
 sudo podman run --rm -ti -v$PWD:/var/tmp centos:7
@@ -144,11 +160,11 @@ cp /var/cache/yum/x86_64/7/nvidia-container-runtime/packages/nvidia-container-to
 exit
 ----
 
-*** Create the unrpm script from: https://github.com/openSUSE/obs-build/blob/master/unrpm
-*** Unpack the rpm: `bash unrpm nvidia-container-toolkit-1.0.5-2.x86_64.rpm`
-*** If running this on another node (i.e. the Administrative Workstation), SCP the files to the GPU Worker Node: 
-**** Set this variable to the FQDN of the GPU Worker Nodes `WORKER=""`
-**** Execute these commands:
+* Create the unrpm script from: https://github.com/openSUSE/obs-build/blob/master/unrpm
+* Unpack the rpm: `bash unrpm nvidia-container-toolkit-1.0.5-2.x86_64.rpm`
+* If running this on another node (i.e. the Administrative Workstation), SCP the files to the GPU Worker Node: 
+** Set this variable to the FQDN of the GPU Worker Nodes `WORKER=""`
+** SCP the files to the Worker Node:
 
 ////
 ----
@@ -157,16 +173,20 @@ scp etc/nvidia-container-runtime/config.toml root@$WORKER:/etc/nvidia-container-
 scp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json root@$WORKER:/usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
 ssh $WORKER sudo mkdir -p /usr/libexec/oci/hooks.d/
 scp usr/libexec/oci/hooks.d/oci-nvidia-hook root@$WORKER:/usr/libexec/oci/hooks.d/oci-nvidia-hook
+ssh $WORKER sudo mkdir -p /usr/share/licenses/nvidia-container-toolkit-1.0.5/
+scp usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE root@$WORKER:/usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE
 ----
 ////
 
 ----
-scp etc/nvidia-container-runtime/config.toml $WORKER:~/etc/nvidia-container-runtime/config.toml
-scp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json $WORKER:~/usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
-scp usr/libexec/oci/hooks.d/oci-nvidia-hook $WORKER:~/usr/libexec/oci/hooks.d/oci-nvidia-hook
+scp -r etc/nvidia-container-runtime/config.toml $WORKER:~/etc/nvidia-container-runtime/config.toml
+scp -r usr/share/containers/oci/hooks.d/oci-nvidia-hook.json $WORKER:~/usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
+scp -r usr/libexec/oci/hooks.d/oci-nvidia-hook $WORKER:~/usr/libexec/oci/hooks.d/oci-nvidia-hook
+scp -r usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE $WORKER:~/usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE
 ----
 
 .Continue the process on the GPU Worker Node:
+
 * Copy the Nvidia Container Toolkit into place:
 ----
 sudo mkdir -p /etc/nvidia-container-runtime/
@@ -175,12 +195,16 @@ sudo cp etc/nvidia-container-runtime/config.toml /etc/nvidia-container-runtime/c
 sudo cp usr/bin/nvidia-container-toolkit /usr/bin/nvidia-container-toolkit
 sudo cp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
 sudo cp usr/libexec/oci/hooks.d/oci-nvidia-hook /usr/libexec/oci/hooks.d/oci-nvidia-hook
+sudo cp usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE /usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE
 ----
 
 * Edit  the /etc/nvidia-container-runtime/config.toml file to uncomment or insert the line: `user = "root:video"`
 
-* `sudo chmod 0666 /dev/nvidia*`
-* `sudo chown root:video /dev/nvidia*`
+* Update the metadata of the Nvidia device files:
+----
+sudo chmod 0666 /dev/nvidia*
+sudo chown root:video /dev/nvidia*
+----
 
 * (Optional) Test that a container can access the GPU: `sudo podman --rm run nvidia/cuda nvidia-smi`
 
