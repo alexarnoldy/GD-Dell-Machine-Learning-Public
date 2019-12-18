@@ -630,7 +630,98 @@ sudo zypper --non-interactive install cuda
 * When the driver is correctly loaded it will show the version in: `cat /proc/driver/nvidia/version`
 ** If the driver hasn't loaded, reboot the node and check again
 
+* Check that you can access the GPU:
+----
+sudo usermod -G video -a geeko
+sudo usermod -G video -a root
+sudo su - geeko
+nvidia-smi
+----
+** Should get an output that contains:
+----
+NVIDIA-SMI XXX.YY Driver Version: XXX.YY CUDA Version: XX.Y
+. . . .
+No running processes found
+----
 
+* Install the Nvidia libnvidia-container:
+----
+wget https://github.com/NVIDIA/libnvidia-container/releases/download/v1.0.0/libnvidia-container_1.0.0_x86_64.tar.xz
+tar xJf libnvidia-container_1.0.0_x86_64.tar.xz
+sudo cp libnvidia-container_1.0.0/usr/local/bin/nvidia-container-cli /usr/bin
+sudo cp libnvidia-container_1.0.0/usr/local/lib/libnvidia-container.so* /usr/lib64
+----
+* Verify functionality of the nvidia-container-cli utility: `nvidia-container-cli info`
+** Should get an output that contains:
+----
+NVRM version:   XXX.YY                                                          
+CUDA version:   XX.Y  
+Model:          X
+Brand:          Y
+----
+
+### Install nvidia-container-toolkit on any nodes equiped with GPUs
+
+.Start on the CaaS Platform Administrative Workstation
+* Download the required package via a CentOS container:
+----
+sudo zypper --non-interactive install podman
+sudo podman run --rm -ti -v$PWD:/var/tmp centos:7
+DIST=$(. /etc/os-release; echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-container-runtime/$DIST/nvidia-container-runtime.repo |    tee /etc/yum.repos.d/nvidia-container-runtime.repo
+yum install --downloadonly nvidia-container-runtime-hook        # May have answer "y" to accept Nvidia's GPG key
+cp /var/cache/yum/x86_64/7/nvidia-container-runtime/packages/nvidia-container-toolkit-1.0.5-2.x86_64.rpm /var/tmp
+exit
+----
+
+* Create the unrpm script from: https://github.com/openSUSE/obs-build/blob/master/unrpm
+* Unpack the rpm: `bash unrpm nvidia-container-toolkit-1.0.5-2.x86_64.rpm`
+* If running this on another node (i.e. the Administrative Workstation), SCP the files to the GPU Worker Node:
+** Set this variable to the FQDN of the GPU Worker Nodes `WORKER=""`
+** SCP the files to the Worker Node:
+----
+scp -r etc/nvidia-container-runtime/config.toml $WORKER:~/etc/nvidia-container-runtime/config.toml
+scp -r usr/share/containers/oci/hooks.d/oci-nvidia-hook.json $WORKER:~/usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
+scp -r usr/libexec/oci/hooks.d/oci-nvidia-hook $WORKER:~/usr/libexec/oci/hooks.d/oci-nvidia-hook
+scp -r usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE $WORKER:~/usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE
+----
+
+.Continue the process on the GPU Worker Node:
+
+* Copy the Nvidia Container Toolkit into place:
+----
+sudo mkdir -p /etc/nvidia-container-runtime/
+sudo mkdir -p /usr/libexec/oci/hooks.d/
+sudo cp etc/nvidia-container-runtime/config.toml /etc/nvidia-container-runtime/config.toml
+sudo cp usr/bin/nvidia-container-toolkit /usr/bin/nvidia-container-toolkit
+sudo cp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
+sudo cp usr/libexec/oci/hooks.d/oci-nvidia-hook /usr/libexec/oci/hooks.d/oci-nvidia-hook
+sudo cp usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE /usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE
+----
+
+* Edit  the /etc/nvidia-container-runtime/config.toml file to uncomment or insert the line: `user = "root:video"`
+
+* Update the metadata of the Nvidia device files:
+----
+sudo chmod 0666 /dev/nvidia*
+sudo chown root:video /dev/nvidia*
+----
+
+* (Optional) Test that a container can access the GPU: `sudo podman --rm run nvidia/cuda nvidia-smi`
+
+.Finish the process from the Administrative Workstation
+* Install the Nvidia Kubernetes device plugin 
+* `kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/1.0.0-beta/nvidia-device-plugin.yml`
+
+* Set this variable for the next several commands: `WORKER=`
+
+* Ensure the correct number of GPUs are recognized on the worker node: `kubectl describe node $WORKER | egrep "gpu|Unschedulable"`
+** Output should include three lines beginning with `nvidia.com/gpu`. The first two should match the number of GPUs on the node. The last line should show quanties zero
+
+NOTE: If the previous command also showed `Unschedulable` as `true`, uncordon the node before continuing: `kubectl uncordon $WORKER`
+
+* Ensure that CaaS Platform can run a GPU enabled pod on the node:
+* If there are more than one node in the CaaS Platform cluster with GPUs, label this node to ensure the test pod get scheduled on it: `kubectl label node $WORKER gpu=true`
 
 
 
