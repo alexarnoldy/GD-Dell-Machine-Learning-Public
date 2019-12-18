@@ -208,7 +208,7 @@ sudo chmod 0666 /dev/nvidia*
 sudo chown root:video /dev/nvidia*
 ----
 
-* (Optional) Test that a container can access the GPU: `sudo podman --rm run nvidia/cuda nvidia-smi`
+* (Optional) Test that a container can access the GPU: `sudo podman run --rm nvidia/cuda nvidia-smi`
 
 .Install the Nvidia Kubernetes device plugin from the Administrative Workstation
 * `kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/1.0.0-beta/nvidia-device-plugin.yml`
