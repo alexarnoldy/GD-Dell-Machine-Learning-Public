@@ -606,8 +606,7 @@ kubectl get pods -n kube-system -l app=oidc-gangway
 
 .Start on the Nvidia GPU equiped Worker Node
 
-* Verify the model of Nvidia GPU:
-* `sudo lspci | grep -i nvidia`
+* Verify the model of Nvidia GPU: `sudo lspci | grep -i nvidia`
 ** Check against: https://developer.nvidia.com/cuda-gpus to ensure the GPU is CUDA compatible
 
 * Install the appropriate kernel header files for the kernel version
