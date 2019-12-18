@@ -136,7 +136,7 @@ Brand:		Y
 ** Start on the CaaS Platform Admin Workstation
 ----
 sudo zypper --non-interactive install podman
-sudo podman run -ti -v$PWD:/var/tmp centos:7
+sudo podman run --rm -ti -v$PWD:/var/tmp centos:7
 DIST=$(. /etc/os-release; echo $ID$VERSION_ID)
 curl -s -L https://nvidia.github.io/nvidia-container-runtime/$DIST/nvidia-container-runtime.repo |    tee /etc/yum.repos.d/nvidia-container-runtime.repo
 yum install --downloadonly nvidia-container-runtime-hook	# May have answer "y" to accept Nvidia's GPG key
@@ -167,16 +167,22 @@ scp usr/libexec/oci/hooks.d/oci-nvidia-hook $WORKER:~/usr/libexec/oci/hooks.d/oc
 ----
 
 .Continue the process on the GPU Worker Node:
-* `sudo mkdir -p /etc/nvidia-container-runtime/`
-* `sudo mkdir -p /usr/libexec/oci/hooks.d/`
-* `sudo cp etc/nvidia-container-runtime/config.toml /etc/nvidia-container-runtime/config.toml`
-* `sudo cp usr/bin/nvidia-container-toolkit /usr/bin/nvidia-container-toolkit`
-* `sudo cp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json`
-* `sudo cp usr/libexec/oci/hooks.d/oci-nvidia-hook /usr/libexec/oci/hooks.d/oci-nvidia-hook`
+* Copy the Nvidia Container Toolkit into place:
+----
+sudo mkdir -p /etc/nvidia-container-runtime/
+sudo mkdir -p /usr/libexec/oci/hooks.d/
+sudo cp etc/nvidia-container-runtime/config.toml /etc/nvidia-container-runtime/config.toml
+sudo cp usr/bin/nvidia-container-toolkit /usr/bin/nvidia-container-toolkit
+sudo cp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
+sudo cp usr/libexec/oci/hooks.d/oci-nvidia-hook /usr/libexec/oci/hooks.d/oci-nvidia-hook
+----
+
 * Edit  the /etc/nvidia-container-runtime/config.toml file to uncomment or insert the line: `user = "root:video"`
 
 * `sudo chmod 0666 /dev/nvidia*`
 * `sudo chown root:video /dev/nvidia*`
+
+* (Optional) Test that a container can access the GPU: `sudo podman --rm run nvidia/cuda nvidia-smi`
 
 .Install the Nvidia Kubernetes device plugin from the Administrative Workstation
 * `kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/1.0.0-beta/nvidia-device-plugin.yml`
