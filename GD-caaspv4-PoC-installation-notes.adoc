@@ -677,13 +677,11 @@ exit
 * Create the unrpm script from: https://github.com/openSUSE/obs-build/blob/master/unrpm
 * Unpack the rpm: `bash unrpm nvidia-container-toolkit-1.0.5-2.x86_64.rpm`
 * If running this on another node (i.e. the Administrative Workstation), SCP the files to the GPU Worker Node:
-** Set this variable to the FQDN of the GPU Worker Nodes `WORKER=""`
+** Set this variable to the FQDN of the GPU Worker Nodes `export WORKER=`
 ** SCP the files to the Worker Node:
 ----
-scp -r etc/nvidia-container-runtime/config.toml $WORKER:~/etc/nvidia-container-runtime/config.toml
-scp -r usr/share/containers/oci/hooks.d/oci-nvidia-hook.json $WORKER:~/usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
-scp -r usr/libexec/oci/hooks.d/oci-nvidia-hook $WORKER:~/usr/libexec/oci/hooks.d/oci-nvidia-hook
-scp -r usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE $WORKER:~/usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE
+scp -r etc/ $WORKER:~/
+scp -r usr/ $WORKER:~/
 ----
 
 .Continue the process on the GPU Worker Node:
@@ -692,6 +690,8 @@ scp -r usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE $WORKER:~/usr/s
 ----
 sudo mkdir -p /etc/nvidia-container-runtime/
 sudo mkdir -p /usr/libexec/oci/hooks.d/
+sudo mkdir -p /usr/share/licenses/nvidia-container-toolkit-1.0.5/
+
 sudo cp etc/nvidia-container-runtime/config.toml /etc/nvidia-container-runtime/config.toml
 sudo cp usr/bin/nvidia-container-toolkit /usr/bin/nvidia-container-toolkit
 sudo cp usr/share/containers/oci/hooks.d/oci-nvidia-hook.json /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json
