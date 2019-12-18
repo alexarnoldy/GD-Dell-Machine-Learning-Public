@@ -284,9 +284,14 @@ NOTE: Peform the following steps on each of the two installed servers
 * `sudo chown -R geeko:users ~/$(hostname -f).xml`
 * `scp ~/$(hostname -f).xml kubeadmin.suse.hpc.local:~/autoyast_templates/`
 
-## Need to copy the files and adjust the hostnames/IP addresses
+.Create the AutoYaST files for the remaining nodes  
 
-### AutoYaST install the remaining Dell R640 and R740 servers
+NOTE: Peform the following steps on the Management Workstation
+
+
+
+[[anchor-40]]
+==== AutoYaST install the remaining Dell R640 and R740 servers
 
 NOTE: Perform the following steps on each of the remaining Dell servers, adjusting the IP address and hostname portions of the AutoYaST parameters below
 
