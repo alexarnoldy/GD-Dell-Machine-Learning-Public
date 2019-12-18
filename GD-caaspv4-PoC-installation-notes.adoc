@@ -10,13 +10,24 @@ CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST wo
 ** Four CaaS Platform Worker Nodes - Dell R740 hosts
 
 .Overview of this installation procedure:
-* Create a CaaS Platform Management Workstation VM and manually install the SLES15 SP1
-* Manually install SLES15 SP1 on one of the Dell R640 and one of the Dell R740 hosts and configure bonded networks, as appropriate
+. <<anchor-10>>
+. <<anchor-20>>
+. <<anchor-30>>
+. <<anchor-35>>
+. <<anchor-40>>
+. <<anchor-50>>
+. <<anchor-55>>
+. <<anchor-60>>
+. <<anchor-65>>
+. <<anchor-70>>
+. <<anchor-80>>
+* Create a CaaS Platform Management Workstation VM and install SLES15 SP1
+* Install SLES15 SP1 on the first of each type of node to be used in the cluster (i.e. Dell R640 and Dell R740)
 * Make an AutoYaST clone file of each of the Dell hosts
-* AutoYaST install the remaining nodes from the Dell R640 and Dell R740 AutoYaST files, as appropriate
+* AutoYaST install the remaining nodes from the AutoYaST files
 * Prepare the nodes for forming the CaaS Platform cluster
 * Form the CaaS Platform cluster
-* Update the CaaS Platform cluster as needed for the application, optionally including performing GPU integration
+* Update the CaaS Platform cluster as needed for the application including GPU integration
 
 NOTE: Unlike CaaS Platform v3, the Management Workstation for CaaS Platform v4 is not tied in a 1:1 relationship with the CaaS Platform cluster.
       A Management Workstation can be used to deploy one or more CaaS Platform clusters and a CaaS Platform cluster can be managed from the 
@@ -30,7 +41,8 @@ CAUTION: This guide can be used as a reference while deploying different configu
 * Populate DNS records that are available to the cluster nodes
 * A local RMT registration server
 
-### Install the Management Workstation:
+[[anchor-10]]
+==== Install the Management Workstation VM
 
 * Virtual Machine connected to a bridge that has access to the Internet and the cluster network
 * 4 vCPU, 4096MB mem, 20GB qcow2 boot drive in default libvirt location
