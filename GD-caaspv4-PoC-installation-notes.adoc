@@ -610,6 +610,27 @@ kubectl get pods -n kube-system -l app=oidc-gangway
 * `sudo lspci | grep -i nvidia`
 ** Check against: https://developer.nvidia.com/cuda-gpus to ensure the GPU is CUDA compatible
 
+* Install the appropriate kernel header files for the kernel version
+** `uname -r`
+*** Output is in the form of <version>-<variant>, i.e. 4.12.14-197.26-default
+** `sudo zypper --non-interactive install kernel-default-devel=4.12.14-197.26`
+*** Format is sudo zypper --non-interactive install kernel-<variant>-devel=<version>
+
+* Install the Cuda toolkit:
+----
+sudo zypper addrepo http://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/cuda-sles15.repo
+sudo SUSEConnect --product PackageHub/15.1/x86_64
+sudo SUSEConnect --product sle-module-desktop-applications/15.1/x86_64
+sudo zypper refresh     # May require "trust always" the "package signing key"
+sudo zypper --non-interactive install cuda
+----
+
+* Verify which packages and versions of the Cuda toolkit were installed `sudo zypper search cuda`
+
+* When the driver is correctly loaded it will show the version in: `cat /proc/driver/nvidia/version`
+** If the driver hasn't loaded, reboot the node and check again
+
+
 
 
 
