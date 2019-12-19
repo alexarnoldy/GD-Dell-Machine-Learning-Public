@@ -37,7 +37,7 @@ CAUTION: This guide can be used as a reference while deploying different configu
 * A local RMT registration server
 
 [[anchor-10]]
-==== Install the Management Workstation VM
+=== Install the Management Workstation VM
 
 * Virtual Machine connected to a bridge that has access to the Internet and the cluster network
 * 4 vCPU, 4096MB mem, 20GB qcow2 boot drive in default libvirt location
@@ -200,7 +200,7 @@ CAUTION: The following steps assume that the boot drives for all R640 nodes are 
 ////
 
 [[anchor-20]]
-==== Install SLES15 SP1 on the first of each type of node to be used in the cluster (i.e. Dell R640 and Dell R740)
+=== Install SLES15 SP1 on the first of each type of node to be used in the cluster (i.e. Dell R640 and Dell R740)
 * Nodes must have access to the Internet, as well as the cluster network; and the DNS, NTP, and RMT servers
 * Start the node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, as shown below. When ready, press Enter to boot the system.
@@ -274,7 +274,7 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 *** If swap is enabled, remote the swap line from the /etc/fstab file and reboot
 
 [[anchor-30]]
-==== Create an AutoYaST clone file of the first Dell R640 and Dell R740 servers
+=== Create an AutoYaST clone file of the first Dell R640 and Dell R740 servers
 
 NOTE: Peform the following steps on each of the two installed servers
 
@@ -291,7 +291,7 @@ NOTE: Peform the following steps on the Management Workstation
 
 
 [[anchor-40]]
-==== AutoYaST install the remaining Dell R640 and R740 servers
+=== AutoYaST install the remaining Dell R640 and R740 servers
 
 NOTE: Perform the following steps on each of the remaining Dell servers, adjusting the IP address and hostname portions of the AutoYaST parameters below
 
