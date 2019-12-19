@@ -284,7 +284,7 @@ NOTE: Peform the following steps on each of the two installed servers
 * `sudo chown -R geeko:users ~/$(hostname -f).xml`
 * `scp ~/$(hostname -f).xml kubeadmin.suse.hpc.local:~/autoyast_templates/`
 
-.Create the AutoYaST files for the remaining nodes  
+===== Create the AutoYaST files for the remaining nodes  
 
 NOTE: Peform the following steps on the Management Workstation
 
