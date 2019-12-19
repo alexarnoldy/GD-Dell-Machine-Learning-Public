@@ -286,6 +286,13 @@ NOTE: Peform the following steps on each of the two installed servers
 
 ==== Create the AutoYaST files for the remaining nodes  
 
+NOTE: Peform the following steps on each of the two installed servers
+
+* Make a copy of the first servers' AutoYaST file for each of the remaining nodes, naming them with the FQDN of the node and ending in .xml
+
+CAUTION: Take care not to mix up the two different types of servers. Applying the Dell R640 AutoYaST file to a Dell R740, or vise versa, could yeild unexpected results.
+
+
 NOTE: Peform the following steps on the Management Workstation
 
 
