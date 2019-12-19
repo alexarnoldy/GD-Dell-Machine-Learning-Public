@@ -9,7 +9,7 @@ CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST wo
 ** Three CaaS Platform Master Nodes - Dell R640 hosts
 ** Four CaaS Platform Worker Nodes - Dell R740 hosts
 
-.Overview of this installation procedure:
+==== Overview of this installation procedure:
 . <<anchor-10>>
 . <<anchor-20>>
 . <<anchor-30>>
@@ -31,7 +31,7 @@ NOTE: Unlike CaaS Platform v3, the Management Workstation for CaaS Platform v4 i
 CAUTION: This guide can be used as a reference while deploying different configurations, but deviating from the specified design can cause unpredicable results
 
 
-.Required preparation before beginning
+==== Required preparation before beginning
 * Establish an IP schema for the cluster. 
 * Populate DNS records that are available to the cluster nodes
 * A local RMT registration server
@@ -63,7 +63,7 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 * Install
 
 
-.Finish preparing the Management workstation:
+==== Finish preparing the Management workstation:
 * Enable passwordless sudo for the user geeko
 ----
 sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
@@ -81,7 +81,7 @@ sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
 *** `Save NTP Configuration`
 *** `Accept`, then `OK`
 
-.Create a file to reference all of the CaaS Platform cluster nodes
+==== Create a file to reference all of the CaaS Platform cluster nodes
 * `mkdir ~/autoyast_templates`
 ----
 cat <<EOF> ~/autoyast_templates/.all_nodes
@@ -95,7 +95,7 @@ wrkr4.suse.hpc.local
 EOF
 ----
 
-.Setup podman and the nginx webserver
+==== Setup podman and the nginx webserver
 
 ** `sudo zypper -n in podman`
 ** Launch nginx webserver container: `sudo podman run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest`
@@ -226,7 +226,7 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 * Install
 
 
-.Finish preparing the first Dell servers:
+==== Finish preparing the first Dell servers:
 * Enable passwordless sudo for the user geeko
 ----
 sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
@@ -242,7 +242,7 @@ sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
 *** `Save NTP Configuration`
 *** `Accept`, then `OK`
 
-.If needed, adjust the first Dell servers' networking after they complete installation
+==== If needed, adjust the first Dell servers' networking after they complete installation
 
 NOTE: This document demonstrates the procedure for creating a bonded network from em1
     and em2, then assigning the node's IP address to that bond; however, your configuration may be different
@@ -266,7 +266,7 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 ** `ip a`
 ** `ping opensuse.com`
 
-.Ensure swap is not enabled. Swap is incompatible with Kubernetes
+==== Ensure swap is not enabled. Swap is incompatible with Kubernetes
 * `cat /proc/swaps`
 ** Should return a header line, but nothing else
 * `grep swap /etc/fstab`
@@ -284,7 +284,7 @@ NOTE: Peform the following steps on each of the two installed servers
 * `sudo chown -R geeko:users ~/$(hostname -f).xml`
 * `scp ~/$(hostname -f).xml kubeadmin.suse.hpc.local:~/autoyast_templates/`
 
-===== Create the AutoYaST files for the remaining nodes  
+==== Create the AutoYaST files for the remaining nodes  
 
 NOTE: Peform the following steps on the Management Workstation
 
@@ -304,25 +304,25 @@ IMPORTANT: The procedure for installing via AutoYaST is slightly different depen
 *** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/<node name>.xml ifcfg=em1=<node IP address>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=<node name>.suse.hpc.local`
 
 
-.Add Master Node SSH key to its own authorized_keys file so it will be included in the AutoYaST clone file
+==== Add Master Node SSH key to its own authorized_keys file so it will be included in the AutoYaST clone file
 * `ssh-keygen`
 ** Accept the defaults
 * `cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys`
 
-.Creating an AutoYaST clone of the Master Node
+==== Creating an AutoYaST clone of the Master Node
 ** The following steps can be performed from the Master Node's console or an SSH session
 *** `sudo yast2 clone_system`
 *** SCP the AutoYaST file to the Management Workstation. This will overwrite the original master.xml file. Make a copy first, if needed.
 **** ` sudo scp /root/autoinst.xml kubeadmin.suse.hpc.local:/home/geeko/autoyast_templates/master.xml `
 
-.Create copies of the master.xml file for each Worker Node
+==== Create copies of the master.xml file for each Worker Node
 
 TIP: Perform the following steps from the Management Workstation as the geeko user
 
 * `cd ~/autoyast_templates/`
 * `for EACH in 1 2 3; do cp -p master.xml worker$EACH.xml; done`
 
-.Edit each Worker Node XML file to update the hostname and IP address
+==== Edit each Worker Node XML file to update the hostname and IP address
 ////
 Note: Due to the "<profile xmlns=" default namespace declaration in the AutoYaST file, xmlstarlet selects and edits follow a different format:
 To select the hostname: xml sel -t -m "//_:networking/_:dns" -v _:hostname FILENAME.xml
@@ -347,13 +347,13 @@ This was the manual way to update hostname and IP address
 *** Use the command `:x` to save the file and move on the the next
 ////
 
-.Test that each Worker Node XML file is available through the nginx webserver
+==== Test that each Worker Node XML file is available through the nginx webserver
 * `docker ps`
 * Set this variable to the port listed under PORTS: `NGINX_PORT=""`
 * Test that each Worker Node autoyast file is available: `for EACH in 1 2 3; do curl http://kubeadmin.suse.hpc.local:$NGINX_PORT/worker$EACH.xml | egrep "<hostname|ipaddr"; done`
 ** Verify each hostname and IP address is correct for each Worker Node
 
-.AutoYaST install worker1
+==== AutoYaST install worker1
 
 IMPORTANT: The procedure for installing via AutoYaST is slightly different depending on if the target server is configured to boot in (U)EFI mode or Legacy BIOS mode. To ensure a the boot mode for a bare-metal server, consult its BIOS before continuing. Virtual Machines commonly boot in Legacy BIOS mode. For more information, see the SLES15 SP1 AutoYaST guide: https://documentation.suse.com/sles/15-SP1/single-html/SLES-autoyast/#book-autoyast
 
@@ -366,7 +366,7 @@ TIP: It is recommended to fully install worker1 before continuing to the rest of
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key, then provide the AutoYaST parameters, shown below; at the end of the "linuxefi" line. When ready, press Ctrl+x to boot the system.
 *** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/<worker node name>.xml ifcfg=em1=<IP of worker node>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=<worker node name>.suse.hpc.local
 
-.AutoYaST install the rest of the Worker Nodes
+==== AutoYaST install the rest of the Worker Nodes
 * Repeat the previous step, "AutoYast install worker1" for each of the remaining Worker Nodes
 
 ### Preparation for forming CaaS Platform cluster
@@ -381,12 +381,12 @@ for EACH in `cat .all_nodes`; do ssh $EACH sudo hostname -f; done
 ----
 ** It should return each fully qualified hostname with no additional interaction required
 
-.Ensure caasp, SLES, basesystem, and containers are all "Registered"
+==== Ensure caasp, SLES, basesystem, and containers are all "Registered"
 ----
 for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo SUSEConnect -s | egrep --color "caasp|SLES|basesystem|containers|\"Registered\"" && echo"" && echo "Press Enter for next system" && read NEXT; done
 ----
 
-.Ensure swap is not enabled on any of the CaaS Platform hosts
+==== Ensure swap is not enabled on any of the CaaS Platform hosts
 ----
 for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo ""; done
 ----
@@ -464,11 +464,11 @@ done
 IMPORTANT: If any nodes will require additional configuration such as GPU integration, use the command `kubectl cordon <node name>` to prevent work from being assigned to it until it is ready.
 
 
-.Verify the status of the cluster
+==== Verify the status of the cluster
 * `cd /home/geeko/suse-caasp-hpc`
 * `skuba cluster status`
 
-.Enable the use of kubectl from the Management Workstation
+==== Enable the use of kubectl from the Management Workstation
 * `echo export KUBECONFIG=/home/geeko/caaspv4-cluster/admin.conf >> ~/.bashrc`
 * `. ~/.bashrc` 
 * `kubectl get nodes`
@@ -497,7 +497,7 @@ done
 
 ### Configure Dex and Gangway
 
-.Create the ClusterRoleBinding for the admins group
+==== Create the ClusterRoleBinding for the admins group
 * `kubectl create clusterrolebinding ldap-admin-access --clusterrole=cluster-admin --group=admins`
 * Edit the configmap: `kubectl --namespace=kube-system edit configmap oidc-dex-config`
 * Restart Dex and Gangway pods:
@@ -511,12 +511,12 @@ kubectl get pods -n kube-system -l app=oidc-dex
 kubectl get pods -n kube-system -l app=oidc-gangway
 ----
 
-.Add the Dex self-signed cert to the Admin node:
+==== Add the Dex self-signed cert to the Admin node:
 * Get the cert from the dex pod: `kubectl exec -it -n kube-system $(kubectl get pod -n kube-system -l app=oidc-dex -o name | head -1) cat /etc/dex/pki/ca.crt > /tmp/mstr.suse.hpc.local:32000-ca.crt`
 * Move the cert into place: `sudo mv /tmp/mstr.suse.hpc.local:32000-ca.crt /etc/pki/trust/anchors/`
 * Update the certs: `sudo update-ca-certificates`
 
-.Test authentication:
+==== Test authentication:
 * `skuba auth login -s https://mstr.suse.hpc.local:32000`
 * Remove the kubeconf.txt file, if the login was successful: `rm kubeconf.txt`
 * Use the Chromium browser to test logging into Gangway at https://mstr.suse.hpc.local:32001
@@ -529,7 +529,7 @@ kubectl get pods -n kube-system -l app=oidc-gangway
 
 ### Enable privilege escalation on CaaS Platform
 
-.Edit the pod security policy
+==== Edit the pod security policy
 * `kubectl edit psp suse.caasp.psp.unprivileged`
 * Add the following elements below `spec:`
 ----
@@ -543,7 +543,7 @@ kubectl get pods -n kube-system -l app=oidc-gangway
 
 ### Enable GPU availability for CaaS Platform
 
-.Start on the Nvidia GPU equiped Worker Node
+==== Start on the Nvidia GPU equiped Worker Node
 
 * Verify the model of Nvidia GPU: `sudo lspci | grep -i nvidia`
 ** Check against: https://developer.nvidia.com/cuda-gpus to ensure the GPU is CUDA compatible
@@ -600,7 +600,7 @@ Brand:          Y
 
 ### Install nvidia-container-toolkit on any nodes equiped with GPUs
 
-.Start on the CaaS Platform Administrative Workstation
+==== Start on the CaaS Platform Administrative Workstation
 * Download the required package via a CentOS container:
 ----
 sudo zypper --non-interactive install podman
@@ -622,7 +622,7 @@ scp -r etc/ $WORKER:~/
 scp -r usr/ $WORKER:~/
 ----
 
-.Continue the process on the GPU Worker Node:
+==== Continue the process on the GPU Worker Node:
 
 * Copy the Nvidia Container Toolkit into place:
 ----
@@ -647,7 +647,7 @@ sudo chown root:video /dev/nvidia*
 
 * (Optional) Test that a container can access the GPU: `sudo podman run --rm nvidia/cuda nvidia-smi`
 
-.Finish the process from the Administrative Workstation
+==== Finish the process from the Administrative Workstation
 * Install the Nvidia Kubernetes device plugin 
 * `kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/1.0.0-beta/nvidia-device-plugin.yml`
 
@@ -691,7 +691,7 @@ EOF
 
 ### Troubleshooting Section
 
-.Troubleshoot a failed bootstrap
+==== Troubleshoot a failed bootstrap
 * ssh to master and `sudo less /var/log/messages` 
 * Search for kub
 * Follow the progression of the skuba command and kubeadm
