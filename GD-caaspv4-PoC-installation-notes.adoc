@@ -294,7 +294,37 @@ CAUTION: Take care not to mix up the two different types of servers. Applying th
 
 NOTE: Peform the following steps once for each of the two installed servers
 
-* Set this variable to the hostname of the installed server: `FIRST_INSTALLED_SERVER=`
+NOTE: At this point the ~/autoyast_templates/ directory should have one XML file for each CaaS Platform cluster node, but all files are currently identical. The next steps will adjust those files to match the cluster nodes.
+
+IMPORTANT: Ensure each cluster node has an XML file as well as an entry in the .all_nodes file
+
+* Update the hostnames in the XML files:
+** Set this variable to the hostname (not the FQDN) of the installed server: `export FIRST_HOSTNAME=`
+** Execute this loop:
+----
+rm -f /tmp/hostname_update 
+for EACH in $(ls -1 mstr* wrkr*)
+do 
+NEW_HOSTNAME=$(echo ${EACH} | awk -F. '{print$1}')
+echo "sed -i 's/${FIRST_HOSTNAME}/${NEW_HOSTNAME}/g' ${EACH}" >> /tmp/hostname_update
+done
+----
+** Review the /tmp/hostname_update file to ensure the changes are correct: `grep -v suse /tmp/hostname_update`
+*** Correct any mistakes in the file, then execute the commands in it: `bash /tmp/hostname_update`
+* Update the IP addresses in the XML files:
+** Set this variable to the IP address of the installed server: `export FIRST_IP=`
+** Execute this loop:
+----
+rm -f /tmp/IP_update 
+for EACH in $(ls -1 mstr* wrkr*)
+do 
+NEW_IP=$(echo ${EACH} | awk -F. '{print$1}')
+echo "sed -i 's/${FIRST_IP}/${NEW_IP}/g' ${EACH}" >> /tmp/IP_update
+done
+----
+** Review the /tmp/hostname_update file to ensure the changes are correct: `grep -v suse /tmp/IP_update`
+*** Correct any mistakes in the file, then execute the commands in it: `bash /tmp/IP_update`
+
 
 
 [[anchor-40]]
