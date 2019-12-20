@@ -280,21 +280,21 @@ NOTE: Peform the following steps on each of the two installed servers
 
 * `sudo yast2 clone_system`
 ** Approve the installation of the autoyast2 package
-* `sudo mv /root/autoinst.xml ~/$(hostname -f).xml`
-* `sudo chown -R geeko:users ~/$(hostname -f).xml`
-* `scp ~/$(hostname -f).xml kubeadmin.suse.hpc.local:~/autoyast_templates/`
+* `sudo mv /root/autoinst.xml ~/$(hostname).xml`
+* `sudo chown -R geeko:users ~/$(hostname).xml`
+* `scp ~/$(hostname).xml kubeadmin.suse.hpc.local:~/autoyast_templates/`
 
 ==== Create the AutoYaST files for the remaining nodes  
 
-NOTE: Peform the following steps on each of the two installed servers
+NOTE: Peform the following steps on the Management Workstation
 
-* Make a copy of the first servers' AutoYaST file for each of the remaining nodes, naming them with the FQDN of the node and ending in .xml
+* Make a copy of the first servers' AutoYaST file for each of the remaining nodes, naming them with the hostname of the node and ending in .xml
 
 CAUTION: Take care not to mix up the two different types of servers. Applying the Dell R640 AutoYaST file to a Dell R740, or vise versa, could yeild unexpected results.
 
+NOTE: Peform the following steps once for each of the two installed servers
 
-NOTE: Peform the following steps on the Management Workstation
-
+* Set this variable to the hostname of the installed server: `FIRST_INSTALLED_SERVER=`
 
 
 [[anchor-40]]
