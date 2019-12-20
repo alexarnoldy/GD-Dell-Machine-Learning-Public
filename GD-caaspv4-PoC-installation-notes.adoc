@@ -318,7 +318,7 @@ done
 rm -f /tmp/IP_update 
 for EACH in $(ls -1 mstr* wrkr*)
 do 
-NEW_IP=$(echo ${EACH} | awk -F. '{print$1}')
+NEW_IP=$(getent hosts $(echo ${EACH} | awk -F. '{print$1}') | awk '{print$1}')
 echo "sed -i 's/${FIRST_IP}/${NEW_IP}/g' ${EACH}" >> /tmp/IP_update
 done
 ----
