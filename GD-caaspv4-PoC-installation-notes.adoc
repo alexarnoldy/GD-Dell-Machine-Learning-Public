@@ -118,6 +118,7 @@ IMPORTANT: This step is primarily intended to support AutoYaST installation. The
 * After cloning the repository in the link below, update the dnsmasq_hosts file with at least one entry that points to the Management Workstation, such as `172.16.240.130    admin`
 * Ensure the DHCP configuration in the dnsmasq.conf file includes the correct default router and points to the container's IP address for DNS resolution
 
+* Follow the README.adoc file to create a https://github.com/alexarnoldy/opensuse-dnsmasq-container[opensuse-dnsmasq-container]
 
 ////
 .Create an AutoYaST clone file of the Management Workstation
