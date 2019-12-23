@@ -113,7 +113,11 @@ NOTE: If the weberver is using a port other than 80, specify that port in the cu
 
 CAUTION: This step makes the process of AutoYaST installing the cluster nodes easier, but is not required. It is highly recommended to verify there is not an existing DHCP server on the subnet before continuing (See the Troubleshooting section below)
 
-* After cloning the repository below, update the dnsmasq_hosts file with at least one entry that points to the Management Workstation, such as `172.16.240.130    admin`
+IMPORTANT: This step is primarily intended to support AutoYaST installation. The DNS/DHCP container can be used to support the installed and configured CaaS Platform cluster or the installed cluster hosts can refer to another DNS server.
+
+* After cloning the repository in the link below, update the dnsmasq_hosts file with at least one entry that points to the Management Workstation, such as `172.16.240.130    admin`
+* Ensure the DHCP configuration in the dnsmasq.conf file includes the correct default router and points to the container's IP address for DNS resolution
+
 
 ////
 .Create an AutoYaST clone file of the Management Workstation
