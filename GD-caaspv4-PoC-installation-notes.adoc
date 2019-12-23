@@ -1,5 +1,5 @@
 ### CURRENT STAGE OF THIS DOCUMENT: Rapidly changing (again), possibly incomplete, likely brittle do to lots of automation based on this specific configuration
-#### Last updated: 2019.12.17, early AM PDT
+#### Last updated: 2019.12.23, early AM PDT
 
 CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST works slightly differently depending on if the server is configured to boot in (U)EFI mode or Legacy BIOS mode. This document attempts to provide the simplest procedures for both cases. 
 
@@ -95,7 +95,7 @@ wrkr4.suse.hpc.local
 EOF
 ----
 
-==== Setup podman and the nginx webserver
+==== Setup podman and the nginx webserver container
 
 ** `sudo zypper -n in podman`
 ** Launch nginx webserver container: `sudo podman run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest`
@@ -109,7 +109,11 @@ IMPORTANT: This container WILL NOT automatically start after rebooting the Manag
 * Test that files in the autoyast_templates directory are available: `curl http://kubeadmin.suse.hpc.local:$NGINX_PORT/.all_nodes`
 ** The output should display the contents of the .all_nodes file
 
+==== Optionally, setup a local DNS/DHCP container
 
+CAUTION: This step makes the process of AutoYaST installing the cluster nodes easier, but is not required. It is highly recommended to verify there is not an existing DHCP server on the subnet before continuing (See the Troubleshooting section below)
+
+* After cloning the repository below, update the dnsmasq_hosts file with at least one entry that points to the Management Workstation, such as `172.16.240.130    admin`
 
 ////
 .Create an AutoYaST clone file of the Management Workstation
