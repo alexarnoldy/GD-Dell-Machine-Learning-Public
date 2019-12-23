@@ -104,11 +104,9 @@ EOF
 
 IMPORTANT: This container WILL NOT automatically start after rebooting the Management Workstation. Use `sudo podman start autoyast-nginx` to start it manually
 
-* Find the network port used by the nginx container:
-** `sudo podman ps`
-*** The port will listed under PORTS. For example, port 32768 would be indicated with: `0.0.0.0:32768->80/tcp`
-* Set this variable to the nginx port: `NGINX_PORT=""`
-* Test that files in the autoyast_templates directory are available: `curl http://kubeadmin.suse.hpc.local:$NGINX_PORT/.all_nodes`
+NOTE: If the weberver is using a port other than 80, specify that port in the curl command below, i.e. `curl http://admin:<port>/.all_nodes`. The port can be verified with `sudo podman ps`
+
+* Test that files in the autoyast_templates directory are available: `curl http://admin/.all_nodes`
 ** The output should display the contents of the .all_nodes file
 
 ==== Optionally, setup a local DNS/DHCP container
