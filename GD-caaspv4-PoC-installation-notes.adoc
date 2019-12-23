@@ -97,8 +97,10 @@ EOF
 
 ==== Setup podman and the nginx webserver container
 
-** `sudo zypper -n in podman`
-** Launch nginx webserver container: `sudo podman run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -P -d nginx:latest`
+* `sudo zypper -n in podman`
+* Verify that port 80 on this host is not currently in use: `ss -npr --listening | grep :80`
+** If port 80 is in use, specify a different port with the `-p <container port>:<host port>`` option, or a random high port with the `-P` option, when running the container
+* Launch nginx webserver container: `sudo podman run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -p 80:80 -d nginx:latest`
 
 IMPORTANT: This container WILL NOT automatically start after rebooting the Management Workstation. Use `sudo podman start autoyast-nginx` to start it manually
 
