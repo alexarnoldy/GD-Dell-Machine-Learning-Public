@@ -104,10 +104,11 @@ EOF
 
 IMPORTANT: This container WILL NOT automatically start after rebooting the Management Workstation. Use `sudo podman start autoyast-nginx` to start it manually
 
-NOTE: If the weberver is using a port other than 80, specify that port in the curl command below, i.e. `curl http://admin:<port>/.all_nodes`. The port can be verified with `sudo podman ps`
+NOTE: If the weberver is using a port other than 80, specify that port in the curl command below, i.e. `curl http://kubeadmin:<port>/.all_nodes`. The port can be verified with `sudo podman ps`
 
-* Test that files in the autoyast_templates directory are available: `curl http://admin/.all_nodes`
+* Test that files in the autoyast_templates directory are available on the cluster network: `curl http://kubeadmin/.all_nodes`
 ** The output should display the contents of the .all_nodes file
+** In some cases the Management Workstation will resolve its cluster network IP with a different hostname than
 
 ==== Optionally, setup a local DNS/DHCP container
 
@@ -115,7 +116,7 @@ CAUTION: This step makes the process of AutoYaST installing the cluster nodes ea
 
 IMPORTANT: This step is primarily intended to support AutoYaST installation. The DNS/DHCP container can be used to support the installed and configured CaaS Platform cluster or the installed cluster hosts can refer to another DNS server.
 
-* After cloning the repository in the link below, update the dnsmasq_hosts file with at least one entry that points to the Management Workstation, such as `172.16.240.130    admin`
+* After cloning the repository in the link below, update the dnsmasq_hosts file with at least one entry that points to the Management Workstation, such as `172.29.145.53    kubeadmin`
 * Ensure the DHCP configuration in the dnsmasq.conf file includes the correct default router and points to the container's IP address for DNS resolution
 
 * Follow the README.adoc file to create a https://github.com/alexarnoldy/opensuse-dnsmasq-container[opensuse-dnsmasq-container]
@@ -307,7 +308,7 @@ NOTE: At this point the ~/autoyast_templates/ directory should have one XML file
 
 IMPORTANT: Ensure each cluster node has an XML file as well as an entry in the .all_nodes file
 
-* Update the hostnames in the XML files:
+* Update the hostnames in the nodes' XML files:
 ** Set this variable to the hostname (not the FQDN) of the installed server: `export FIRST_HOSTNAME=`
 ** Execute this loop:
 ----
