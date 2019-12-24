@@ -101,10 +101,10 @@ TIP: This step reduces the amount of typing (and thus the chances of typos) at t
 
 CAUTION: It is highly recommended to verify there is not an existing DHCP server on the subnet before continuing (See the Troubleshooting section in the opensuse-dnsmasq-container link below)
 
-IMPORTANT: This step is primarily intended to support AutoYaST installation. The DNS/DHCP container can be used to support the installed and configured CaaS Platform cluster or the installed cluster hosts can refer to another DNS server.
+TIP: This step is primarily intended to support AutoYaST installation. However, if an external DNS server is not available, this DNS/DHCP container can be used to support the installed and configured CaaS Platform cluster.
 
 * After cloning the repository in the link below, update the dnsmasq_hosts file with at least one entry that points to the Management Workstation, such as `172.29.145.53    kubeadmin`
-* Ensure the DHCP configuration in the dnsmasq.conf file includes the correct default router and points to the container's IP address for DNS resolution
+* Ensure the DHCP configuration in the dnsmasq.conf file includes the correct default router and points to the Management Workstation's cluster IP address for DNS resolution
 
 * Follow the README.adoc file to create a https://github.com/alexarnoldy/opensuse-dnsmasq-container[opensuse-dnsmasq-container]
 
@@ -117,7 +117,7 @@ IMPORTANT: This step is primarily intended to support AutoYaST installation. The
 
 IMPORTANT: This container WILL NOT automatically start after rebooting the Management Workstation. Use `sudo podman start autoyast-nginx` to start it manually
 
-NOTE: If the weberver is using a port other than 80, specify that port in the curl command below, i.e. `curl http://kubeadmin:<port>/.all_nodes`. The port can be verified with `sudo podman ps`
+NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the curl command below, i.e. `curl http://kubeadmin:<port>/.all_nodes`. The port can be verified with `sudo podman ps`
 
 * Test that files in the autoyast_templates directory are available on the cluster network: `curl http://kubeadmin/.all_nodes`
 ** The output should display the contents of the .all_nodes file
@@ -351,8 +351,12 @@ IMPORTANT: The procedure for installing via AutoYaST is slightly different depen
 * Start the Master Node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/<node name>.xml ifcfg=em1=<node IP address>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=<node name>.suse.hpc.local`
 
+NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the command below, i.e. `autoyast=http://kubeadmin:<port>/<node_name>.xml`. The port can be verified by running `sudo podman ps` on the Management Workstation.
+
+*** AutoYaST parameters: `autoyast=http://kubeadmin/<node name>.xml ifcfg=em1=dhcp`
+
+TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
 
 ==== Add Master Node SSH key to its own authorized_keys file so it will be included in the AutoYaST clone file
 * `ssh-keygen`
@@ -414,7 +418,12 @@ TIP: It is recommended to fully install worker1 before continuing to the rest of
 * Start the worker1 from DVD ISO,  Select "Installation" at DVD GRuB screen, but DO NOT PRESS ENTER
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key, then provide the AutoYaST parameters, shown below; at the end of the "linuxefi" line. When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `autoyast=http://kubeadmin.suse.hpc.local:<nginx port>/<worker node name>.xml ifcfg=em1=<IP of worker node>/24,<IP of gateway>,<IP of DNS server>,suse.hpc.local hostname=<worker node name>.suse.hpc.local
+
+NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the command below, i.e. `autoyast=http://kubeadmin:<port>/<node_name>.xml`. The port can be verified by running `sudo podman ps` on the Management Workstation.
+
+*** AutoYaST parameters: `autoyast=http://kubeadmin/<node name>.xml ifcfg=em1=dhcp`
+
+TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
 
 ==== AutoYaST install the rest of the Worker Nodes
 * Repeat the previous step, "AutoYast install worker1" for each of the remaining Worker Nodes
