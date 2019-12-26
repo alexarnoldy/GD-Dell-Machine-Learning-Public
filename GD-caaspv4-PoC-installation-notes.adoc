@@ -1,11 +1,11 @@
 ### CURRENT STAGE OF THIS DOCUMENT: Rapidly changing (again), possibly incomplete, likely brittle do to lots of automation based on this specific configuration
 #### Last updated: 2019.12.23, early AM PDT
 
-CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST works slightly differently depending on if the server is configured to boot in (U)EFI mode or Legacy BIOS mode. This document attempts to provide the simplest procedures for both cases. 
+CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST works slightly differently depending on if the server to be installed is configured to boot in (U)EFI mode or Legacy BIOS mode. This document attempts to provide the simplest procedures for both cases. 
 
 #### This document is a strictly guided, step-by-step implementation of a specific configuration based on the CaaS Platform v4.0.0 Deployment Guide: https://documentation.suse.com/suse-caasp/4/single-html/caasp-deployment/
-* This specific configuration is based on eight nodes:
-** Management Workstation - VM 
+* The specific configuration of this design is based on a minimum of eight nodes:
+** A Management Workstation - VM 
 ** Three CaaS Platform Master Nodes - Dell R640 hosts
 ** Four CaaS Platform Worker Nodes - Dell R740 hosts
 
@@ -39,23 +39,25 @@ CAUTION: This guide can be used as a reference while deploying different configu
 [[anchor-10]]
 === Install the Management Workstation VM
 
-* Virtual Machine connected to a bridge that has access to the Internet and the cluster network
-* 4 vCPU, 4096MB mem, 20GB qcow2 boot drive in default libvirt location
-* Booting from ISO: Select "Installation" BUT DO NOT PRESS ENTER
-* On "Boot Options:" line: `ifcfg=em1=172.29.145.53/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=kubeadmin.suse.hpc.local`
-** Format of ifcfg=em1= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
+* A KVM/qemu Virtual Machine connected to a bridge that has access to the Internet as well as the cluster network
+* Resources of 4 vCPU, 4096MB mem, 20GB qcow2 boot drive in default libvirt location
+* When booting from ISO: Select "Installation" BUT DO NOT PRESS ENTER
+* On the "Boot Options:" line: `ifcfg=eth0=172.29.145.53/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=kubeadmin.suse.hpc.local`
+** Format of ifcfg=eth0= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
 * Press Enter
-* Register with the RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Modules")
+* Install SUSE Linux Enterprise Server
+* Register with the SMT/RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Versions")
 * For partitioning, select Guided Setup
+** Do not enable LVM or encryption
 ** A separate Home Partition is not needed on any of the CaaS Platform Nodes but can be configured, if desired
-** Keep defaults except deselect "Propose Separate Swap Partition"
+** Deselect "Propose Separate Swap Partition"
 
 NOTE: Swap will likely not be needed for the Management Workstation. Swap can be used on the Management Workstations but it CANNOT be used on the CaaS Platform nodes. Swap is incompatible with Kubernetes.
 
 * Create New User:
 ** User's Full Name and Username: geeko
 
-IMPORTANT: It is recommended to use a secure password that will work with all elements of the PoC environment. Therefore a password should be selected that includes at least one upper case and one lower case letter, one number and at least one of the following three special characters: ! # $
+IMPORTANT: It is recommended to use a secure password that will work with all elements of the PoC environment. Therefore a password should be selected that is at least eight characters long, includes at least one upper case and one lower case letter, one number and at least one of the following three special characters: ! # $
 
 ** Select "Use this password for system administrator" 
 * On the final "Installation Settings" screen:
@@ -104,16 +106,18 @@ CAUTION: It is highly recommended to verify there is not an existing DHCP server
 TIP: This step is primarily intended to support AutoYaST installation. However, if an external DNS server is not available, this DNS/DHCP container can be used to support the installed and configured CaaS Platform cluster.
 
 * After cloning the repository in the link below, update the dnsmasq_hosts file with at least one entry that points to the Management Workstation, such as `172.29.145.53    kubeadmin`
-* Ensure the DHCP configuration in the dnsmasq.conf file includes the correct default router and points to the Management Workstation's cluster IP address for DNS resolution
+* Ensure the DHCP configuration in the dnsmasq.conf file includes the correct default router and points to the Management Workstation's cluster network IP address for DNS resolution
 
-* Follow the README.adoc file to create a https://github.com/alexarnoldy/opensuse-dnsmasq-container[opensuse-dnsmasq-container]
+* Follow the README.adoc file to create a DNS+DHCP https://github.com/alexarnoldy/opensuse-dnsmasq-container[opensuse-dnsmasq-container]
 
-==== Setup podman and the nginx webserver container
+==== Setup the nginx webserver container to serve AutoYaST templates
 
 * `sudo zypper -n in podman`
 * Verify that port 80 on this host is not currently in use: `ss -npr --listening | grep :80`
-** If port 80 is in use, specify a different port with the `-p <container port>:<host port>`` option, or a random high port with the `-P` option, when running the container
-* Launch nginx webserver container: `sudo podman run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -p 80:80 -d nginx:latest`
+
+IMPORTANT: If port 80 is in use, specify a different port with the `-p <container port>:<host port>`` option, or a random high port with the `-P` option in the following command
+
+* Launch nginx webserver container: `cd ~; sudo podman run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -p 80:80 -d nginx:latest`
 
 IMPORTANT: This container WILL NOT automatically start after rebooting the Management Workstation. Use `sudo podman start autoyast-nginx` to start it manually
 
@@ -124,93 +128,6 @@ NOTE: If the webserver on the Managment Workstation is using a port other than 8
 
 TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
 
-////
-.Create an AutoYaST clone file of the Management Workstation
-* `sudo yast2 clone_system`
-** Approve the installation of the autoyast2 package
-* `mkdir ~/autoyast_templates`
-* `sudo mv /root/autoinst.xml ~/autoyast_templates/`
-* `sudo chown -R geeko:users ~/autoyast_templates/`
-* `cp ~/autoyast_templates/autoinst.xml ~/autoyast_templates/ses-osd-c.xml`
-*** To verify the output, compare the md5sum from each of the following two commands:
-**** `md5sum autoyast_templates/master.xml`
-**** `curl http://ses-admin.stable.suse.lab:$NGINX_PORT/master.xml | md5sum`
-
-
-.Update the master.xml AutoYaST file with the correct hostname and IP address
-* `sudo zypper -n in xmlstarlet`
-* `cd ~/autoyast_templates/`
-* Verify that getent returns the correct IP address and fully qualified hostname 
-** `getent hosts master`
-
-WARNING: If the getent command does not return the correct IP address and fully qualified hostanme, DO NOT run the following `xml ed` and `sed` commands
-
-* Update hostname in the master.xml file: `xml ed -L -u "//_:networking/_:dns/_:hostname" -v master master.xml`
-
-TIP: Use the command `grep ipaddr autoinst.xml` to verify the Management Workstation's IP address
-
-** Set this variable to the Management Workstation's IP address (i.e. 172.16.241.105): `MANAGEMENTIP=""`
-----
-MASTERIP=`getent hosts master | awk '{print$1}'`; sed -i "s/$MANAGEMENTIP/$MASTERIP/" master.xml
-----
-
-.Update the master.xml AutoYaST file based on architectural differences:
-* If the Master Node is a bare-metal host, run this command: 
-----
-xml ed -L -d "//_:services-manager/_:services/_:enable/_:service[text()='spice-vdagentd']"  master.xml
-----
-* If the Master Node boots in Legacy BIOS mode, run this command: `xml ed -L -u "//_:bootloader/_:loader_type" -v grub2 master.xml`
-* If the Master Node boots in (U)EFI mode, run this command: `xml ed -L -u "//_:bootloader/_:loader_type" -v grub2-efi master.xml`
-////
-
-////
-Manual way of updating hostname and IP address
-*** `cd autoyast_templates/; vim master.xml`
-**** Search for <\/hostname
-***** Change hostname from admin to master
-**** Search for `<ipaddr`
-***** Change the IP address to that of the master. In this document it is 172.16.241.105
-////
-
-////
-.Update the correct boot drive for the Master Node
-////
-
-////
-CAUTION: The following steps assume that the boot drives for all R640 nodes are configured identically. If case, edit the AutoYaST file manually to set the correct boot drive
-
-* Fill the root partition with all of the remaining space on the boot drive:
-** To find the <partition> element for the root partition, search for the string `<mount>\/<`
-*** Inside that <partition> element (normally below the <mount> subnode), change the value of the <size> subnode to `max`
-**** For example, before the change it might look like: `<size>66561507328</size>` and after the change it will look like: `<size>max</size>`
-////
-
-////
-* Add the following element directly above the <services-manager> element:
-
-----
-  <scripts>
-    <post-scripts config:type="list">
-      <script>
-        <debug config:type="boolean">true</debug>
-        <feedback config:type="boolean">false</feedback>
-        <feedback_type/>
-        <filename>autoyast_post_updates.sh</filename>
-        <interpreter>shell</interpreter>
-        <location><![CDATA[http://kubeadmin.suse.hpc.local:32768/autoyast_post_updates.sh]]></location>
-        <notification>Performing_Final_Updates</notification>
-        <param-list config:type="list"/>
-        <source><![CDATA[]]></source>
-      </script>
-    </post-scripts>
-  </scripts>
-----
-** In the URL above, change the port number `32768` to the port number of your nginx webserver container
-* Save the file and exit vim
-
-*** Create the /home/geeko/autoyast_post_updates.sh file
-**** ` echo "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko" > /home/geeko/autoyast_templates/autoyast_post_updates.sh `
-////
 
 [[anchor-20]]
 === Install SLES15 SP1 on the first of each type of node to be used in the cluster (i.e. Dell R640 and Dell R740)
