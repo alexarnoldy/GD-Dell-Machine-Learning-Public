@@ -358,6 +358,7 @@ done
 
 * Each product should be followed by a line that says "Registered"
 ----
+cd ~/autoyast_templates
 for EACH in `cat .all_nodes`; do 
 echo $EACH 
 ssh $EACH sudo SUSEConnect -s | egrep -o --color "caasp|SLES|basesystem|containers|server-applications|\"Registered\"" && \
@@ -368,16 +369,25 @@ done
 ==== Ensure swap is not enabled on any of the CaaS Platform hosts
 
 ----
+cd ~/autoyast_templates
 for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo ""; done
 ----
 ** Should return a header line for each node, but nothing else
+
+==== Ensure name resolution is correcly configured on all cluster nodes
+
+----
+cd ~/autoyast_templates
+for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH tail -2 /etc/resolv.conf; echo ""; done
+----
 
 ==== Deploy at least one load balancer container
 
 NOTE: The load balancer(s) will present a cluster IP address for API clients to consume
 
-* Follow the README.adoc file to create at least one https://github.com/alexarnoldy/nginx-load-balancer-container[nginx load balancer container]
+* Follow the README.adoc file to create at least one https://github.com/alexarnoldy/nginx-load-balancer-container[nginx load balancer container] on the Management Workstation and/or other VM or non-cluster system
 * The README.adoc file contains a link to the https://github.com/alexarnoldy/opensuse-keepalived-container[openSUSE keepalived container] to maintain the virtual IP when running multiple load balancers
+* Ensure the DNS server that supports the cluster nodes can resolve a FQDN to the API virtual IP address, such as "172.29.145.50	mstr.suse.hpc.local"
 
 ### Bootstrap the CaaS Platform cluster
 
