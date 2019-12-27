@@ -377,7 +377,7 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo "";
 NOTE: The load balancer(s) will present a cluster IP address for API clients to consume
 
 * Follow the README.adoc file to create at least one https://github.com/alexarnoldy/nginx-load-balancer-container[nginx load balancer container]
-
+* The README.adoc file contains a link to the https://github.com/alexarnoldy/opensuse-keepalived-container[openSUSE keepalived container] to maintain the virtual IP when running multiple load balancers
 
 ### Bootstrap the CaaS Platform cluster
 
