@@ -347,15 +347,21 @@ for EACH in `cat .all_nodes`; do
 echo $EACH 
 ssh $EACH sudo SUSEConnect --url http://${RMT_HOSTNAME} && \
 ssh $EACH sudo SUSEConnect -p sle-module-containers/15.1/x86_64 && \
-ssh $EACH sudo SUSEConnect -p caasp/4.0/x86_64 --url
-echo"";  echo "Press Enter for next system" && read NEXT 
+ssh $EACH sudo SUSEConnect -p caasp/4.0/x86_64 --url http://${RMT_HOSTNAME}
+#echo"";  read -p "Press Enter for next system" 
 done
 ----
 
 
 .Ensure caasp, SLES, basesystem, and containers are all "Registered"
+
+* Each product should be followed by a line that says "Registered"
 ----
-for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo SUSEConnect -s | egrep --color "caasp|SLES|basesystem|containers|\"Registered\"" && echo"" && echo "Press Enter for next system" && read NEXT; done
+for EACH in `cat .all_nodes`; do 
+echo $EACH 
+ssh $EACH sudo SUSEConnect -s | egrep -o --color "caasp|SLES|basesystem|containers|server-applications|\"Registered\"" && \
+echo"" && read -p "Press Enter for next system"
+done
 ----
 
 ==== Ensure swap is not enabled on any of the CaaS Platform hosts
@@ -367,10 +373,13 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo "";
 
 ### Bootstrap the CaaS Platform cluster
 
+* Start ssh-agent:
+----
+cd ~/autoyast_templates
+eval "$(ssh-agent)"
+ssh-add /home/geeko/.ssh/id_rsa
+----
 
-* `cd ~/autoyast_templates`
-* `eval "$(ssh-agent)"`
-* `ssh-add /home/geeko/.ssh/id_rsa`
 ////
 .For any VM nodes, snapshot before instantiating the cluster
 * Create snapshot
