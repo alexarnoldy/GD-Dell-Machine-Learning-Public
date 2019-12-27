@@ -158,13 +158,10 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 
 ==== Finish preparing the first Dell servers:
 
+* From the Management Workstation, add the geeko@kubeadmin SSH credentials to the server: `ssh-copy-id <hostname>`
+
 NOTE: Peform the following steps on each of the two installed servers
 
-* Add the geeko@kubeadmin SSH credentials to the server: `ssh-copy-id <hostname>`
-* Enable passwordless sudo for the user geeko:
-----
-sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
-----
 * Update the NTP client settings. 
 ** `sudo yast timezone`
 *** `other Settings`
@@ -217,6 +214,8 @@ NOTE: Peform the following steps on each of the two installed servers
 * `sudo mv /root/autoinst.xml ~/$(hostname).xml`
 * `sudo chown -R geeko:users ~/$(hostname).xml`
 * `scp ~/$(hostname).xml kubeadmin.suse.hpc.local:~/autoyast_templates/`
+
+### Need to verify or populate the kubeadmin's SSH key in the AutoYaST templates
 
 ==== Create the AutoYaST files for the remaining nodes  
 
@@ -323,22 +322,44 @@ TIP: In some cases the command above will fail to resolve to the correct IP addr
 
 ### Preparation for forming CaaS Platform cluster
 
-NOTE: The following commands should be run from the Management Workstation and require a .all_nodes file that contains the fully qualified hostnames of all cluster nodes. Create this file if it doesn't already, before continuing.
- 
-* `eval "$(ssh-agent)"`
-* `ssh-add /home/geeko/.ssh/id_rsa`
-* Verify passwordless SSH and sudo capabilities for the geeko user on all nodes
+NOTE: The following commands must be run from the Management Workstation and require a .all_nodes file that contains the fully qualified hostnames of all cluster nodes. 
+
+.Enable passwordless sudo access for the geeko user
+* Run the loop below and execute this command for each node: `sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/01geeko"; exit`
+
+----
+cd ~/autoyast_templates; for EACH in `cat .all_nodes`; do ssh $EACH ; done
+----
+
+.Verify passwordless SSH and sudo capabilities for the geeko user on all nodes
 ----
 for EACH in `cat .all_nodes`; do ssh $EACH sudo hostname -f; done
 ----
 ** It should return each fully qualified hostname with no additional interaction required
+*** If any hosts prompt for a password, resolve the issue with `ssh-copy-id <hostname>` and retest
 
-==== Ensure caasp, SLES, basesystem, and containers are all "Registered"
+==== Register SLES, CaaS Platform, basesystem, and the containers modules
+
+* Set this variable to the hostname or IP address of the RMT server: `export RMT_HOSTNAME=`
+----
+cd ~/autoyast_templates
+for EACH in `cat .all_nodes`; do 
+echo $EACH 
+ssh $EACH sudo SUSEConnect --url http://${RMT_HOSTNAME} && \
+ssh $EACH sudo SUSEConnect -p sle-module-containers/15.1/x86_64 && \
+ssh $EACH sudo SUSEConnect -p caasp/4.0/x86_64 --url
+echo"";  echo "Press Enter for next system" && read NEXT 
+done
+----
+
+
+.Ensure caasp, SLES, basesystem, and containers are all "Registered"
 ----
 for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo SUSEConnect -s | egrep --color "caasp|SLES|basesystem|containers|\"Registered\"" && echo"" && echo "Press Enter for next system" && read NEXT; done
 ----
 
 ==== Ensure swap is not enabled on any of the CaaS Platform hosts
+
 ----
 for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo ""; done
 ----
@@ -346,6 +367,10 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo "";
 
 ### Bootstrap the CaaS Platform cluster
 
+
+* `cd ~/autoyast_templates`
+* `eval "$(ssh-agent)"`
+* `ssh-add /home/geeko/.ssh/id_rsa`
 ////
 .For any VM nodes, snapshot before instantiating the cluster
 * Create snapshot
