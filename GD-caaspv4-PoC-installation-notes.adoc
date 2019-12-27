@@ -375,7 +375,6 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo "";
 
 * Start ssh-agent:
 ----
-cd ~/autoyast_templates
 eval "$(ssh-agent)"
 ssh-add /home/geeko/.ssh/id_rsa
 ----
