@@ -232,7 +232,7 @@ for NODE in wrkr2 wrkr3 wrkr4; do cp -p wrkr1.xml ${NODE}.xml; done
 
 CAUTION: Take care not to mix up the two different types of servers. Applying the Dell R640 AutoYaST file to a Dell R740, or vise versa, could yeild unexpected results.
 
-NOTE: At this point the ~/autoyast_templates/ directory should have one XML file for each CaaS Platform cluster node, but all files are currently identical. The next steps will adjust those files to match the cluster nodes.
+NOTE: The next steps will adjust the XML files to with the correct hostnames and IP addresses of the cluster nodes.
 
 IMPORTANT: Ensure each cluster node has an XML file as well as an entry in the .all_nodes file
 
@@ -273,7 +273,7 @@ done
 
 TIP: This step can be performed from the Management Workstation, but is best performed from another host attached to the cluster network
 
-* If needed, populate the .all_nodes file (i.e. if performing this step from a host other than the Management Workstation
+* ONLY IF NEEDED, populate the .all_nodes file (i.e. if performing this step from a host other than the Management Workstation)
 ----
 cat <<EOF> ~/.all_nodes
 mstr1.suse.hpc.local
@@ -287,6 +287,9 @@ EOF
 ----
 
 * Test that each autoyast file is available:
+
+NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the command below, i.e. `curl -s http://kubeadmin:<port>/<node_name>.xml`. The port can be verified by running `sudo podman ps` on the Management Workstation.
+
 ----
 for EACH in $(awk -F. '{print$1}' .all_nodes)
 do 
@@ -296,7 +299,6 @@ echo ""
 done
 ----
 ** Verify each hostname and IP address is correct for each Worker Node
-
 
 
 [[anchor-40]]
@@ -317,26 +319,7 @@ NOTE: If the webserver on the Managment Workstation is using a port other than 8
 
 TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
 
-==== AutoYaST install worker1
 
-IMPORTANT: The procedure for installing via AutoYaST is slightly different depending on if the target server is configured to boot in (U)EFI mode or Legacy BIOS mode. To ensure a the boot mode for a bare-metal server, consult its BIOS before continuing. Virtual Machines commonly boot in Legacy BIOS mode. For more information, see the SLES15 SP1 AutoYaST guide: https://documentation.suse.com/sles/15-SP1/single-html/SLES-autoyast/#book-autoyast
-
-TIP: It is recommended to fully install worker1 before continuing to the rest of the Worker Nodes.
-     Once it is shown that worker1 can be fully installed with the AutoYaST configuration, multiple Worker Nodes can be installed simultaneously.
-
-* Provide the SLES 15 SP1 DVD1 installer DVD or ISO to the VM or host BIOS
-* Start the worker1 from DVD ISO,  Select "Installation" at DVD GRuB screen, but DO NOT PRESS ENTER
-** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
-** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key, then provide the AutoYaST parameters, shown below; at the end of the "linuxefi" line. When ready, press Ctrl+x to boot the system.
-
-NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the command below, i.e. `autoyast=http://kubeadmin:<port>/<node_name>.xml`. The port can be verified by running `sudo podman ps` on the Management Workstation.
-
-*** AutoYaST parameters: `autoyast=http://kubeadmin/<node name>.xml ifcfg=em1=dhcp`
-
-TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
-
-==== AutoYaST install the rest of the Worker Nodes
-* Repeat the previous step, "AutoYast install worker1" for each of the remaining Worker Nodes
 
 ### Preparation for forming CaaS Platform cluster
 
