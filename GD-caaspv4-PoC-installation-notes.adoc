@@ -123,7 +123,7 @@ IMPORTANT: This container WILL NOT automatically start after rebooting the Manag
 
 NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the curl command below, i.e. `curl http://kubeadmin:<port>/.all_nodes`. The port can be verified with `sudo podman ps`
 
-* Test that files in the autoyast_templates directory are available on the cluster network: `curl http://kubeadmin/.all_nodes`
+* Test that files in the autoyast_templates directory are available on the cluster network (if possible, from another system connected to the clsuter network): `curl http://kubeadmin/.all_nodes`
 ** The output should display the contents of the .all_nodes file
 
 TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
@@ -242,6 +242,7 @@ NOTE: Peform the following steps once for each of the two installed servers
 ** Set this variable to the hostname (not the FQDN) of the installed server: `export FIRST_HOSTNAME=`
 ** Execute this loop:
 ----
+cd ~/autoyast_templates
 rm -f /tmp/hostname_update 
 for EACH in $(ls -1 mstr* wrkr*)
 do 
@@ -257,6 +258,7 @@ done
 TIP: Get the correct IP address with the command: `grep ipaddr <hostname>.xml` where <hostname> is the first node installed
 ** Execute this loop:
 ----
+cd ~/autoyast_templates
 rm -f /tmp/IP_update 
 for EACH in $(ls -1 mstr* wrkr*)
 do 
@@ -266,6 +268,34 @@ done
 ----
 ** Review the /tmp/hostname_update file to ensure the sed commands to change the IP addresses are correct: `grep -v suse /tmp/IP_update`
 *** Correct any mistakes in the file, then execute the commands in it: `bash /tmp/IP_update`
+
+==== Test that each Worker Node XML file is available through the nginx webserver
+
+TIP: This step can be performed from the Management Workstation, but is best performed from another host attached to the cluster network
+
+* If needed, populate the .all_nodes file (i.e. if performing this step from a host other than the Management Workstation
+----
+cat <<EOF> ~/.all_nodes
+mstr1.suse.hpc.local
+mstr2.suse.hpc.local
+mstr3.suse.hpc.local
+wrkr1.suse.hpc.local
+wrkr2.suse.hpc.local
+wrkr3.suse.hpc.local
+wrkr4.suse.hpc.local
+EOF
+----
+
+* Test that each autoyast file is available:
+----
+for EACH in $(awk -F. '{print$1}' .all_nodes)
+do 
+echo ${EACH}
+curl -s http://kubeadmin/${EACH}.xml| egrep "<hostname|ipaddr" | grep -v 127
+echo ""
+done
+----
+** Verify each hostname and IP address is correct for each Worker Node
 
 
 
@@ -286,55 +316,6 @@ NOTE: If the webserver on the Managment Workstation is using a port other than 8
 *** AutoYaST parameters: `autoyast=http://kubeadmin/<node name>.xml ifcfg=em1=dhcp`
 
 TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
-
-==== Add Master Node SSH key to its own authorized_keys file so it will be included in the AutoYaST clone file
-* `ssh-keygen`
-** Accept the defaults
-* `cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys`
-
-==== Creating an AutoYaST clone of the Master Node
-** The following steps can be performed from the Master Node's console or an SSH session
-*** `sudo yast2 clone_system`
-*** SCP the AutoYaST file to the Management Workstation. This will overwrite the original master.xml file. Make a copy first, if needed.
-**** ` sudo scp /root/autoinst.xml kubeadmin.suse.hpc.local:/home/geeko/autoyast_templates/master.xml `
-
-==== Create copies of the master.xml file for each Worker Node
-
-TIP: Perform the following steps from the Management Workstation as the geeko user
-
-* `cd ~/autoyast_templates/`
-* `for EACH in 1 2 3; do cp -p master.xml worker$EACH.xml; done`
-
-==== Edit each Worker Node XML file to update the hostname and IP address
-////
-Note: Due to the "<profile xmlns=" default namespace declaration in the AutoYaST file, xmlstarlet selects and edits follow a different format:
-To select the hostname: xml sel -t -m "//_:networking/_:dns" -v _:hostname FILENAME.xml
-To update the hostname: xml ed -L -u "//_:networking/_:dns/_:hostname" -v <new hostname> FILENAME.xml
-////
-
-* Change the hostname value for each Worker Node
-** `for EACH in 1 2 3; do xml ed -L -u "//_:networking/_:dns/_:hostname" -v worker$EACH worker$EACH.xml; done`
-* Verify that getent returns the correct IP addresses and hostnames. If not, DO NOT run the subsequent xml ed for loop
-** `for EACH in 1 2 3; do getent hosts worker$EACH; done`
-* Change the ipaddr value for each Worker Node's external interface
-** Set this variable to the Master Node's IP address: `MASTERIP=""`
-** `for EACH in 1 2 3; do WORKERIP=`getent hosts worker$EACH | awk '{print$1}'`; sed -i "s/$MASTERIP/$WORKERIP/" worker$EACH.xml; done`
-
-////
-This was the manual way to update hostname and IP address
-** `for EACH in 1 2 3; do vim worker$EACH.xml; done`
-*** Search for <\/hostname
-**** Change hostname from master to the correct Worker Node name
-*** Search for <ipaddr
-**** Change the IP address to that of the correct Worker Node
-*** Use the command `:x` to save the file and move on the the next
-////
-
-==== Test that each Worker Node XML file is available through the nginx webserver
-* `docker ps`
-* Set this variable to the port listed under PORTS: `NGINX_PORT=""`
-* Test that each Worker Node autoyast file is available: `for EACH in 1 2 3; do curl http://kubeadmin.suse.hpc.local:$NGINX_PORT/worker$EACH.xml | egrep "<hostname|ipaddr"; done`
-** Verify each hostname and IP address is correct for each Worker Node
 
 ==== AutoYaST install worker1
 
