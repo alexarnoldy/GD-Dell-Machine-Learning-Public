@@ -161,7 +161,7 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 NOTE: Peform the following steps on each of the two installed servers
 
 * Add the geeko@kubeadmin SSH credentials to the server: `ssh-copy-id <hostname>`
-* Enable passwordless sudo for the user geeko
+* Enable passwordless sudo for the user geeko:
 ----
 sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
 ----
