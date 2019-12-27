@@ -141,7 +141,7 @@ TIP: In some cases the command above will fail to resolve to the correct IP addr
 * For partitioning, select Guided Setup
 ** For best performance select XFS filesystem for the root partition
 ** A separate Home Partition is not needed on any of the CaaS Platform Nodes but can be configured, if desired
-** Keep defaults except deselect "Propose Separate Swap Partition"
+** Deselect "Propose Separate Swap Partition"
 
 CAUTION: Swap is incompatible with Kubernetes.
 
