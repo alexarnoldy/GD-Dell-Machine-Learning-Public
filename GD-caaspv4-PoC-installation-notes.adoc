@@ -223,14 +223,20 @@ NOTE: Peform the following steps on each of the two installed servers
 NOTE: Peform the following steps on the Management Workstation
 
 * Make a copy of the first servers' AutoYaST file for each of the remaining nodes, naming them with the hostname of the node and ending in .xml
+** An example of this operation, might be:
+----
+cd ~/autoyast_templates/
+for NODE in mstr2 mstr3; do cp -p mstr1.xml ${NODE}.xml; done
+for NODE in wrkr2 wrkr3 wrkr4; do cp -p wrkr1.xml ${NODE}.xml; done
+----
 
 CAUTION: Take care not to mix up the two different types of servers. Applying the Dell R640 AutoYaST file to a Dell R740, or vise versa, could yeild unexpected results.
-
-NOTE: Peform the following steps once for each of the two installed servers
 
 NOTE: At this point the ~/autoyast_templates/ directory should have one XML file for each CaaS Platform cluster node, but all files are currently identical. The next steps will adjust those files to match the cluster nodes.
 
 IMPORTANT: Ensure each cluster node has an XML file as well as an entry in the .all_nodes file
+
+NOTE: Peform the following steps once for each of the two installed servers
 
 * Update the hostnames in the nodes' XML files:
 ** Set this variable to the hostname (not the FQDN) of the installed server: `export FIRST_HOSTNAME=`
@@ -243,10 +249,12 @@ NEW_HOSTNAME=$(echo ${EACH} | awk -F. '{print$1}')
 echo "sed -i 's/${FIRST_HOSTNAME}/${NEW_HOSTNAME}/g' ${EACH}" >> /tmp/hostname_update
 done
 ----
-** Review the /tmp/hostname_update file to ensure the changes are correct: `grep -v suse /tmp/hostname_update`
+** Review the /tmp/hostname_update file to ensure the sed commands to change the hostnames are correct: `grep -v suse /tmp/hostname_update`
 *** Correct any mistakes in the file, then execute the commands in it: `bash /tmp/hostname_update`
 * Update the IP addresses in the XML files:
 ** Set this variable to the IP address of the installed server: `export FIRST_IP=`
+
+TIP: Get the correct IP address with the command: `grep ipaddr <hostname>.xml` where <hostname> is the first node installed
 ** Execute this loop:
 ----
 rm -f /tmp/IP_update 
@@ -256,7 +264,7 @@ NEW_IP=$(getent hosts $(echo ${EACH} | awk -F. '{print$1}') | awk '{print$1}')
 echo "sed -i 's/${FIRST_IP}/${NEW_IP}/g' ${EACH}" >> /tmp/IP_update
 done
 ----
-** Review the /tmp/hostname_update file to ensure the changes are correct: `grep -v suse /tmp/IP_update`
+** Review the /tmp/hostname_update file to ensure the sed commands to change the IP addresses are correct: `grep -v suse /tmp/IP_update`
 *** Correct any mistakes in the file, then execute the commands in it: `bash /tmp/IP_update`
 
 
