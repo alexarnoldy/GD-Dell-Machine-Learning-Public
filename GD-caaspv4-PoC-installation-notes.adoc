@@ -111,6 +111,12 @@ TIP: This step is primarily intended to support AutoYaST installation. However, 
 
 * Follow the README.adoc file to create a DNS+DHCP https://github.com/alexarnoldy/opensuse-dnsmasq-container[openSUSE Dnsmasq container]
 
+==== Optionally, setup a local NTP container
+
+* After cloning the repository in the link below, update the chrony.conf file
+
+* Follow the README.adoc file to create a chrony https://github.com/alexarnoldy/opensuse-chrony-container[openSUSE Chrony container]
+
 ==== Setup the nginx webserver container to serve AutoYaST templates
 
 * `sudo zypper -n in podman`
@@ -389,6 +395,12 @@ NOTE: The load balancer(s) will present a cluster IP address for API clients to 
 * The README.adoc file contains a link to the https://github.com/alexarnoldy/opensuse-keepalived-container[openSUSE keepalived container] which maintains the virtual IP address
 * Ensure the DNS server that supports the cluster nodes can resolve a FQDN to the API virtual IP address, such as "172.29.145.50	mstr.suse.hpc.local"
 
+==== Ensure all cluster nodes can reach resolve the name of, and reach, the load balancer
+
+----
+cd ~/autoyast_templates
+for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH ping -c 2 mstr.suse.hpc.local; echo ""; done
+----
 ### Bootstrap the CaaS Platform cluster
 
 * Start ssh-agent:
@@ -406,9 +418,11 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo virsh snapshot-creat
 ////
 
 * On the Management Workstation:
-* `sudo zypper -n install -t pattern SUSE-CaaSP-Management`
-* `skuba cluster init --control-plane mstr.suse.hpc.local suse-caasp-hpc`
-** Note: --control-plane defines the FQDN of the load balancer. The second argument is the name of the cluster.
+* `sudo zypper --non-interactive install -t pattern SUSE-CaaSP-Management`
+* `cd ~; skuba cluster init --control-plane mstr.suse.hpc.local suse-caasp-hpc && cd suse-caasp-hpc`
+
+NOTE: --control-plane defines the FQDN of the load balancer. The second argument is the name to be givent to the new cluster.
+
 * Ensure the SSH Agent is running and has the geeko user's RSA key loaded
 ** `ps -ef | grep ssh-agent`
 *** If this doesn't return an ssh-agent running for the geeko user, run the following commands to start ssh-agent and add the Management Workstation's key:
