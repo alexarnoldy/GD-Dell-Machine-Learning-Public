@@ -1,5 +1,5 @@
 ### CURRENT STAGE OF THIS DOCUMENT: Rapidly changing (again), possibly incomplete, likely brittle do to lots of automation based on this specific configuration
-#### Last updated: 2019.12.23, early AM PDT
+#### Last updated: 2019.12.27, late PM PDT
 
 CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST works slightly differently depending on if the server to be installed is configured to boot in (U)EFI mode or Legacy BIOS mode. This document attempts to provide the simplest procedures for both cases. 
 
