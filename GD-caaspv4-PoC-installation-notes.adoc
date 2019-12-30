@@ -334,6 +334,8 @@ NOTE: The following commands must be run from the Management Workstation and req
 .Enable passwordless sudo access for the geeko user
 * Run the loop below and execute this command for each node: `sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/01geeko"; exit`
 
+NOTE: This step also verifies that DNS resolution is configured correctly. If resolution fails, ensure DNS records are correct and that the Management Workstation is using the correct DNS server
+
 ----
 cd ~/autoyast_templates; for EACH in `cat .all_nodes`; do ssh $EACH ; done
 ----
@@ -380,11 +382,13 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo "";
 ----
 ** Should return a header line for each node, but nothing else
 
-==== Ensure name resolution is correcly configured on all cluster nodes
+==== Ensure name resolution is correcly configured on all cluster nodes and the Management Workstation
 
 ----
 cd ~/autoyast_templates
 for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH tail -2 /etc/resolv.conf; echo ""; done
+echo kubeadmin
+tail -2 /etc/resolv.conf
 ----
 
 ==== Deploy at least one load balancer container
@@ -401,13 +405,19 @@ NOTE: The load balancer(s) will present a cluster IP address for API clients to 
 cd ~/autoyast_templates
 for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH ping -c 2 mstr.suse.hpc.local; echo ""; done
 ----
+
+==== Ensure all cluster nodes can reach resolve the name of, and reach, the RMT server
+
+----
+cd ~/autoyast_templates
+for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH ping -c 2 rmt.suse.hpc.local; echo ""; done
+----
+
 ### Bootstrap the CaaS Platform cluster
 
-* Start ssh-agent:
-----
-eval "$(ssh-agent)"
-ssh-add /home/geeko/.ssh/id_rsa
-----
+NOTE: Many of the steps in this process begin with starting a short-lived ssh-agent process. While there's no harm in having multiple ssh-agents running at the same time, there's a security advantage to limiting the ssh-agent's lifetime. This methodology has the added advantage of ensuring the ssh-agent is running when it is required.
+
+NOTE: Perform the following steps from the Management Workstation
 
 ////
 .For any VM nodes, snapshot before instantiating the cluster
@@ -417,25 +427,37 @@ for EACH in `cat .all_nodes`; do echo $EACH; ssh $EACH sudo virsh snapshot-creat
 ----
 ////
 
-* On the Management Workstation:
-* `sudo zypper --non-interactive install -t pattern SUSE-CaaSP-Management`
-* `cd ~; skuba cluster init --control-plane mstr.suse.hpc.local suse-caasp-hpc && cd suse-caasp-hpc`
+* Install the CaaS Platform management software and initialize the cluster definition
+----
+eval "$(ssh-agent -t 180)"
+ssh-add /home/geeko/.ssh/id_rsa
+sudo zypper --non-interactive install -t pattern SUSE-CaaSP-Management
+cd ~; skuba cluster init --control-plane mstr.suse.hpc.local suse-caasp-hpc && cd ~/suse-caasp-hpc
+----
 
 NOTE: --control-plane defines the FQDN of the load balancer. The second argument is the name to be givent to the new cluster.
 
+////
 * Ensure the SSH Agent is running and has the geeko user's RSA key loaded
 ** `ps -ef | grep ssh-agent`
 *** If this doesn't return an ssh-agent running for the geeko user, run the following commands to start ssh-agent and add the Management Workstation's key:
 **** `eval "$(ssh-agent)"`
 **** `ssh-add /home/geeko/.ssh/id_rsa`
-* `cd /home/geeko/suse-caasp-hpc`
-* `skuba node bootstrap --user geeko --sudo --target mstr1.suse.hpc.local mstr1`
-** Note this command bootstraps the CaaS Platform cluster with mstr1.suse.hpc.local as the first master node. Internally, Kubernetes will assign this node the name "mstr1"
+////
 
-### Join additional Master Nodes to the cluster
+* Bootstrap the cluster 
+----
+eval "$(ssh-agent -t 180)"
+ssh-add /home/geeko/.ssh/id_rsa
+skuba node bootstrap --user geeko --sudo --target mstr1.suse.hpc.local mstr1
+----
+
+NOTE: This command bootstraps the CaaS Platform cluster with mstr1.suse.hpc.local as the first master node. Internally, Kubernetes will assign this node the name "mstr1"
+
+==== Join additional Master Nodes to the cluster
 * To join a single Master Node to the cluster:
 ----
-eval "$(ssh-agent)"
+eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
 export MASTER_FQDN=
 MASTER=`echo $MASTER_FQDN | awk -F. '{print$1}'`; \
@@ -445,7 +467,7 @@ skuba node join --role master --user geeko --sudo \
 
 * To join all remainging Master Nodes in the .all_nodes file:
 ----
-eval "$(ssh-agent)"
+eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
 for MASTER_FQDN in `grep mstr .all_nodes | tail -n+2`; do \
 MASTER=`echo $MASTER_FQDN | awk -F. '{print$1}'`; \
@@ -456,10 +478,10 @@ done
 
 IMPORTANT: If any nodes will require additional configuration such as GPU integration, use the command `kubectl cordon <node name>` to prevent work from being assigned to it until it is ready.
 
-### Join Worker Nodes to the cluster
+==== Join Worker Nodes to the cluster
 * To join a single Worker Node to the cluster:
 ----
-eval "$(ssh-agent)"
+eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
 export WORKER_FQDN=
 WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; \
@@ -469,7 +491,7 @@ skuba node join --role worker --user geeko --sudo \
 
 * To join all remainging Worker Nodes in the .all_nodes file:
 ----
-eval "$(ssh-agent)"
+eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
 for WORKER_FQDN in `grep wrkr .all_nodes`; do \
 WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; \
@@ -478,7 +500,7 @@ skuba node join --role worker --user geeko --sudo \
 done
 ----
 
-IMPORTANT: If any nodes will require additional configuration such as GPU integration, use the command `kubectl cordon <node name>` to prevent work from being assigned to it until it is ready.
+IMPORTANT: If any nodes will require additional configuration such as GPU integration, use the command `kubectl cordon <node name>` to prevent work from being assigned to those nodes until they are ready.
 
 
 ==== Verify the status of the cluster
