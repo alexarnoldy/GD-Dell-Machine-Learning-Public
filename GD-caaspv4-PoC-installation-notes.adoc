@@ -39,6 +39,8 @@ CAUTION: This guide can be used as a reference while deploying different configu
 * Optionally, a DHCP service that is available to the cluster nodes
 ** The instructions below include deploying a local dnsmasq container to provide DNS or DHCP services to the cluster
 * A local RMT registration server
+** A "Repository Mirroring Tool Guide" for deploying a local RMT server can be found under the appropriate version of "SUSE Linux Enterprise Server" at: https://documentation.suse.com/
+*** Additional, but unsupported, guidance can be found here: https://github.com/alexarnoldy/SUSE-tools/blob/master/Configure_RMT_Server.adoc
 
 [[anchor-10]]
 === Install the Management Workstation VM
@@ -46,8 +48,8 @@ CAUTION: This guide can be used as a reference while deploying different configu
 * A KVM/qemu Virtual Machine connected to a bridge that has access to the Internet as well as the cluster network
 * Resources of 4 vCPU, 4096MB mem, 20GB qcow2 boot drive in default libvirt location
 * When booting from ISO: Select "Installation" BUT DO NOT PRESS ENTER
-* On the "Boot Options:" line: `ifcfg=eth0=172.29.145.53/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=kubeadmin.suse.hpc.local`
-** Format of ifcfg=eth0= is <node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>
+* On the "Boot Options:" line provide the network configuration parameters in the form of `ifcfg=eth0=<node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain>`
+** For example: `ifcfg=eth0=172.29.145.53/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=kubeadmin.suse.hpc.local`
 * Press Enter
 * Install SUSE Linux Enterprise Server
 * Register with the SMT/RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Versions")
@@ -144,10 +146,10 @@ TIP: In some cases the command above will fail to resolve to the correct IP addr
 === Install SLES15 SP1 on the first of each type of node to be used in the cluster (i.e. Dell R640 and Dell R740)
 * Nodes must have access to the Internet, as well as the cluster network; and the DNS, NTP, and RMT servers
 * Start the node from DVD or ISO,  Select "Installation" at the DVD GRuB screen, but DO NOT PRESS ENTER
-** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, as shown below. When ready, press Enter to boot the system.
-** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters as shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
-*** AutoYaST parameters: `ifcfg=em1=<node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain> hostname=<FQDN of node>`
-** For example: ifcfg=em1=172.29.145.61/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=mstr1.suse.hpc.local`
+** If there is a "Boot Options" line near the bottom of the screen, provide the Network configuration parameters, as shown below. When ready, press Enter to boot the system.
+** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the Network configuration parameters as shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
+*** Network configuration parameters: `ifcfg=em1=<node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain> hostname=<FQDN of node>`
+** For example: `ifcfg=em1=172.29.145.61/24,172.29.145.2,172.29.202.10,suse.hpc.local hostname=mstr1.suse.hpc.local`
 * Register with the RMT server and select the SUSE CaaS Platform 4.0 module (May need to uncheck "Hide Development Modules" to see it)
 * For partitioning, select Guided Setup
 ** For best performance select XFS filesystem for the root partition
@@ -326,9 +328,9 @@ IMPORTANT: The procedure for installing via AutoYaST is slightly different depen
 NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the command below, i.e. `autoyast=http://kubeadmin:<port>/<node_name>.xml`. The port can be verified by running `sudo podman ps` on the Management Workstation.
 
 *** AutoYaST parameters: `autoyast=http://kubeadmin/<node name>.xml ifcfg=em1=dhcp`
+*** If DHCP is not available provide the network configuration parameters in the form of: `ifcfg=em1=<node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain> hostname=<FQDN of node>`
 
 TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
-
 
 
 ### Preparation for forming CaaS Platform cluster
