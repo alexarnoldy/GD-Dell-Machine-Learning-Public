@@ -32,8 +32,12 @@ CAUTION: This guide can be used as a reference while deploying different configu
 
 
 ==== Required preparation before beginning
-* Establish an IP schema for the cluster. 
-* Populate DNS records that are available to the cluster nodes
+* Establish an IP schema for the cluster
+** In addition to the Management Workstation and cluster nodes, a virtual (floating) IP address will be needed for the Kubernetes API service
+** Additional IP addresses needed may include those for one or more load balancers and a software management (RMT) server
+* Populate a DNS service that is available to the cluster nodes
+* Optionally, a DHCP service that is available to the cluster nodes
+** The instructions below include deploying a local dnsmasq container to provide DNS or DHCP services to the cluster
 * A local RMT registration server
 
 [[anchor-10]]
