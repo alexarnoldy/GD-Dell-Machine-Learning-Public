@@ -332,13 +332,14 @@ TIP: In some cases the command above will fail to resolve to the correct IP addr
 NOTE: The following commands must be run from the Management Workstation and require a .all_nodes file that contains the fully qualified hostnames of all cluster nodes. 
 
 .Check the time skew of all nodes to be added to the cluster
+
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do \
-bash -c "ssh $EACH date > /tmp/$EACH.time-check & " 
-done 
+for EACH in `cat ~/autoyast_templates/.all_nodes`; do bash -c "ssh $EACH date > /tmp/$EACH.time-check & "; done 
 date >/tmp/$(hostname -f).time-check
-grep -v suse /tmp/*time-check
 ----
+
+* Ensure all nodes responded and the time skew is within 1 second: `grep -v suse /tmp/*time-check`
+
 
 .Enable passwordless sudo access for the geeko user
 * Run the loop below and execute this command for each node: `sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/01geeko"; exit`
