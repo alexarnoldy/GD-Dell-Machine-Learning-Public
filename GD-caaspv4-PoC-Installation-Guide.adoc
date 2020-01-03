@@ -1,5 +1,4 @@
-### CURRENT STAGE OF THIS DOCUMENT: Rapidly changing (again), possibly incomplete, likely brittle do to lots of automation based on this specific configuration
-#### Last updated: 2019.12.27, late PM PDT
+### CURRENT STAGE OF THIS DOCUMENT: Beta, likely brittle do to lots of automation based on a specific configuration
 
 CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST works slightly differently depending on if the server to be installed is configured to boot in (U)EFI mode or Legacy BIOS mode. This document attempts to provide the simplest procedures for both cases. 
 
@@ -228,7 +227,6 @@ NOTE: Peform the following steps on each of the two installed servers
 * `sudo chown -R geeko:users ~/$(hostname).xml`
 * `scp ~/$(hostname).xml kubeadmin.suse.hpc.local:~/autoyast_templates/`
 
-### Need to verify or populate the kubeadmin's SSH key in the AutoYaST templates
 
 ==== Create the AutoYaST files for the remaining nodes  
 
