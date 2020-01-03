@@ -17,11 +17,10 @@ CAUTION: The procedure outlined in this document leverages AutoYaST. AutoYaST wo
 . <<anchor-60>>
 . <<anchor-70>>
 . <<anchor-80>>
-* Make an AutoYaST clone file of each of the Dell hosts
-* AutoYaST install the remaining nodes from the AutoYaST files
-* Prepare the nodes for forming the CaaS Platform cluster
-* Form the CaaS Platform cluster
-* Update the CaaS Platform cluster as needed for the application including GPU integration
+. <<anchor-90>>
+. <<anchor-100>>
+. <<anchor-110>>
+. <<anchor-120>>
 
 NOTE: Unlike CaaS Platform v3, the Management Workstation for CaaS Platform v4 is not tied in a 1:1 relationship with the CaaS Platform cluster.
       A Management Workstation can be used to deploy one or more CaaS Platform clusters and a CaaS Platform cluster can be managed from the 
@@ -347,7 +346,8 @@ for EACH in `cat ~/autoyast_templates/.all_nodes`; do ssh $EACH sudo hostname -f
 ** It should return each fully qualified hostname with no additional interaction required
 *** If any hosts prompt for a password, resolve the issue with `ssh-copy-id <hostname>` and retest
 
-==== Register SLES, CaaS Platform, basesystem, and the containers modules
+[[anchor-60]]
+=== Register SLES, CaaS Platform, basesystem, and the containers modules
 
 * Set this variable to the hostname or IP address of the RMT server: `export RMT_HOSTNAME=`
 ----
@@ -387,7 +387,8 @@ echo kubeadmin
 tail -2 /etc/resolv.conf
 ----
 
-==== Deploy at least one load balancer container
+[[anchor-70]]
+=== Deploy at least one load balancer container
 
 NOTE: The load balancer(s) will present a cluster IP address for API clients to consume
 
@@ -407,9 +408,10 @@ for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH ping
 for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH ping -c 2 rmt.suse.hpc.local; echo ""; done
 ----
 
-### Bootstrap the CaaS Platform cluster
+[[anchor-70]]
+=== Bootstrap and install the CaaS Platform cluster
 
-NOTE: Many of the steps in this process begin with starting a short-lived ssh-agent process. While there's no harm in having multiple ssh-agents running at the same time, there's a security advantage to limiting the ssh-agent's lifetime. This methodology has the added advantage of ensuring the ssh-agent is running when it is required.
+NOTE: Many of the steps in this process begin with running a short-lived ssh-agent process. While there's no harm in having multiple ssh-agents running at the same time, there's a security advantage to limiting any ssh-agent's lifetime. This methodology offers the added advantage of ensuring the ssh-agent is running during the procedure when it is required.
 
 NOTE: Perform the following steps from the Management Workstation
 
@@ -531,7 +533,8 @@ done
 
 
 
-### Configure Dex and Gangway
+[[anchor-80]]
+=== Configure Dex and Gangway
 
 ==== Create the ClusterRoleBinding for the admins group
 * `kubectl create clusterrolebinding ldap-admin-access --clusterrole=cluster-admin --group=admins`
@@ -559,11 +562,13 @@ kubectl get pods -n kube-system -l app=oidc-gangway
 ** Log in with a user id, such as suse, rather than email address
 ** Try using Incognito Mode if cookie errors prevent logging in
 
-### Configure the Ceph storage class
+[[anchor-90]]
+=== Configure the Ceph storage class
 
 
 
-### Enable privilege escalation on CaaS Platform
+[[anchor-100]]
+=== Enable privilege escalation on CaaS Platform
 
 ==== Edit the pod security policy
 * `kubectl edit psp suse.caasp.psp.unprivileged`
@@ -577,7 +582,8 @@ kubectl get pods -n kube-system -l app=oidc-gangway
 
 
 
-### Enable GPU availability for CaaS Platform
+[[anchor-110]]
+=== Enable GPU availability for CaaS Platform
 
 ==== Start on the Nvidia GPU equiped Worker Node
 
@@ -725,7 +731,8 @@ EOF
 
 
 
-### Troubleshooting Section
+[[anchor-120]]
+=== Troubleshooting 
 
 ==== Troubleshoot a failed bootstrap
 * ssh to master and `sudo less /var/log/messages` 
