@@ -217,7 +217,9 @@ TIP: In yast, Tab will help you navigate through panes and options. Each option 
 *** If swap is enabled, remote the swap line from the /etc/fstab file and reboot
 
 [[anchor-30]]
-=== Create an AutoYaST clone file of the first Dell R640 and Dell R740 servers
+=== Prepare the AutoYaST files for all of the cluster nodes
+
+==== Create an AutoYaST clone file of the first Dell R640 and Dell R740 servers
 
 NOTE: Peform the following steps on each of the two installed servers
 
@@ -242,14 +244,14 @@ for NODE in wrkr2 wrkr3 wrkr4; do cp -p wrkr1.xml ${NODE}.xml; done
 
 CAUTION: Take care not to mix up the two different types of servers. Applying the Dell R640 AutoYaST file to a Dell R740, or vise versa, could yeild unexpected results.
 
-NOTE: The next steps will adjust the XML files to with the correct hostnames and IP addresses of the cluster nodes.
+==== Adjust the XML files to with the correct hostnames and IP addresses of the cluster nodes
 
-IMPORTANT: Ensure each cluster node has an XML file as well as an entry in the .all_nodes file
+IMPORTANT: Before continuing, ensure each cluster node has an XML file as well as an entry in the .all_nodes file
 
-NOTE: Peform the following steps once for each of the two installed servers
+NOTE: Peform the following steps once for each of the two installed servers (i.e. once for the Dell R640, then again for the Dell R740)
 
 * Update the hostnames in the nodes' XML files:
-** Set this variable to the hostname (not the FQDN) of the installed server: `export FIRST_HOSTNAME=`
+** Set this variable to the hostname (not the FQDN) of the installed server (i.e. the installed Dell R640): `export FIRST_HOSTNAME=`
 ** Execute this loop:
 ----
 cd ~/autoyast_templates
