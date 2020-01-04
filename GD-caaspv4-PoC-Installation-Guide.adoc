@@ -344,15 +344,18 @@ NOTE: The following commands must be run from the Management Workstation and req
 
 .Check the time skew of all nodes to be added to the cluster
 
+* Ensure all nodes respond and the time skew is within 1 second: 
 ----
+rm /tmp/*time-check
 for EACH in `cat ~/autoyast_templates/.all_nodes` 
 do bash -c "ssh $EACH date > /tmp/$EACH.time-check & " 
 done 
 date > /tmp/$(hostname -f).time-check 
-
+sleep 1
+grep -v suse /tmp/*time-check
+rm /tmp/*time-check
 ----
 
-* Ensure all nodes responded and the time skew is within 1 second: `grep -v suse /tmp/*time-check`
 
 
 .Enable passwordless sudo access for the geeko user
@@ -453,6 +456,7 @@ eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
 sudo zypper --non-interactive install -t pattern SUSE-CaaSP-Management
 cd ~; skuba cluster init --control-plane mstr.suse.hpc.local suse-caasp-hpc && cd ~/suse-caasp-hpc
+kill ${SSH_AGENT_PID}
 ----
 
 NOTE: --control-plane defines the FQDN of the load balancer. The second argument is the name to be givent to the new cluster.
@@ -470,6 +474,7 @@ NOTE: --control-plane defines the FQDN of the load balancer. The second argument
 eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
 skuba node bootstrap --user geeko --sudo --target mstr1.suse.hpc.local mstr1
+kill ${SSH_AGENT_PID}
 ----
 
 NOTE: This command bootstraps the CaaS Platform cluster with mstr1.suse.hpc.local as the first master node. Internally, Kubernetes will assign this node the name "mstr1"
@@ -485,13 +490,13 @@ MASTER=`echo $MASTER_FQDN | awk -F. '{print$1}'`; \
 skuba node join --role master --user geeko --sudo \
 --target $MASTER_FQDN $MASTER; \
 done
+kill ${SSH_AGENT_PID}
 ----
 
 * To join a single Master Node to the cluster:
 
 ----
-# eval "$(ssh-agent -t 180)"
-ssh-agent bash
+eval "$(ssh-agent -t 180)"
 cd ~/suse-caasp-hpc/
 ssh-add /home/geeko/.ssh/id_rsa
 export MASTER_FQDN=
@@ -500,6 +505,7 @@ export MASTER_FQDN=
 MASTER=`echo $MASTER_FQDN | awk -F. '{print$1}'`; \
 skuba node join --role master --user geeko --sudo \
 --target $MASTER_FQDN $MASTER
+kill ${SSH_AGENT_PID}
 ----
 
 IMPORTANT: If any nodes will require additional configuration such as GPU integration, use the command `kubectl cordon <node name>` to prevent work from being assigned to it until it is ready.
@@ -515,6 +521,7 @@ WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; \
 skuba node join --role worker --user geeko --sudo \
 --target $WORKER_FQDN $WORKER; \
 done
+kill ${SSH_AGENT_PID}
 ----
 
 * To join a single Worker Node to the cluster:
@@ -522,9 +529,12 @@ done
 eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
 export WORKER_FQDN=
+----
+----
 WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; \
 skuba node join --role worker --user geeko --sudo \
 --target $WORKER_FQDN $WORKER
+kill ${SSH_AGENT_PID}
 ----
 
 IMPORTANT: If any nodes will require additional configuration such as GPU integration, use the command `kubectl cordon <node name>` to prevent work from being assigned to those nodes until they are ready.
