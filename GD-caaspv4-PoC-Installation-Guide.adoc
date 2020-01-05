@@ -489,8 +489,8 @@ ssh-add /home/geeko/.ssh/id_rsa
 MASTER=`echo $MASTER_FQDN | awk -F. '{print$1}'`; \
 skuba node join --role master --user geeko --sudo \
 --target $MASTER_FQDN $MASTER; \
-done
 kill ${SSH_AGENT_PID}
+done
 ----
 
 * To join a single Master Node to the cluster:
@@ -520,8 +520,8 @@ ssh-add /home/geeko/.ssh/id_rsa
 WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; \
 skuba node join --role worker --user geeko --sudo \
 --target $WORKER_FQDN $WORKER; \
-done
 kill ${SSH_AGENT_PID}
+done
 ----
 
 * To join a single Worker Node to the cluster:
@@ -584,8 +584,8 @@ kubectl --namespace=kube-system delete pod -l app=oidc-gangway
 ----
 * Verify the new pods have started correctly: 
 ----
-kubectl get pods -n kube-system -l app=oidc-dex
-kubectl get pods -n kube-system -l app=oidc-gangway
+kubectl get pods -n kube-system -l app=oidc-dex -o wide 
+kubectl get pods -n kube-system -l app=oidc-gangway -o wide 
 ----
 
 ==== Add the Dex self-signed cert to the Admin node:
@@ -610,7 +610,7 @@ kubectl get pods -n kube-system -l app=oidc-gangway
 
 ==== Edit the pod security policy
 * `kubectl edit psp suse.caasp.psp.unprivileged`
-* Add the following elements below `spec:`
+* Add the following elements as part of the `spec:`
 ----
   allowPrivilegeEscalation: true
   allowedCapabilities:
