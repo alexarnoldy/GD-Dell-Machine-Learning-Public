@@ -610,20 +610,28 @@ kubectl get pods -n kube-system -l app=oidc-gangway -o wide
 
 ==== Edit the pod security policy
 * `kubectl edit psp suse.caasp.psp.unprivileged`
-* Add the following elements as part of the `spec:`
-----
+*** Add the following elements as part of the `spec:`
+**** Note: If `allowPrivilegeEscalation` is already defined, ensure it is set to true
+------
   allowPrivilegeEscalation: true
   allowedCapabilities:
   - SYS_PTRACE
   - NET_ADMIN
-----
+------
 
 
 
 [[anchor-110]]
 === Enable GPU availability for CaaS Platform
 
-==== Start on the Nvidia GPU equiped Worker Node
+.Validate the nodes that are equiped with Nvidia GPUs
+----
+for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH sudo lspci | grep -i nvidia; done
+----
+
+.Prepare the Nvidia GPU equiped Worker Node
+
+NOTE: Perform the following steps entirely through for each Nvidia GPU equiped node
 
 * Verify the model of Nvidia GPU: `sudo lspci | grep -i nvidia`
 ** Check against: https://developer.nvidia.com/cuda-gpus to ensure the GPU is CUDA compatible
