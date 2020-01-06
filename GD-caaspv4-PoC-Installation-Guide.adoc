@@ -686,9 +686,10 @@ Model:          X
 Brand:          Y
 ----
 
-### Install nvidia-container-toolkit on any nodes equiped with GPUs
+### Process to install nvidia-container-toolkit on any nodes equiped with GPUs
 
-==== Start on the CaaS Platform Administrative Workstation
+NOTE: Start the process on the CaaS Platform Administrative Workstation
+
 * Download the required package via a CentOS container:
 ----
 sudo zypper --non-interactive install podman
@@ -710,7 +711,7 @@ scp -r etc/ $WORKER:~/
 scp -r usr/ $WORKER:~/
 ----
 
-==== Continue the process on the GPU Worker Node:
+==== Perform the following steps on each GPU equiped Worker Node:
 
 * Copy the Nvidia Container Toolkit into place:
 ----
@@ -734,12 +735,18 @@ sudo chown root:video /dev/nvidia*
 ----
 
 * (Optional) Test that a container can access the GPU: `sudo podman run --rm nvidia/cuda nvidia-smi`
+** Should get an output that contains:
+----
+NVIDIA-SMI XXX.YY Driver Version: XXX.YY CUDA Version: XX.Y
+. . . .
+No running processes found
+----
 
 ==== Finish the process from the Administrative Workstation
 * Install the Nvidia Kubernetes device plugin 
 * `kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/1.0.0-beta/nvidia-device-plugin.yml`
 
-* Set this variable for the next several commands: `export WORKER=`
+* Set this variable to the CaaSP node name (not the FQDN) for the next several commands, then repeat for each GPU equiped worker node: `export WORKER=`
 
 * Ensure the correct number of GPUs are recognized on the worker node: `kubectl describe node $WORKER | egrep "gpu|Unschedulable"`
 ** Output should include three lines beginning with `nvidia.com/gpu`. The first two should match the number of GPUs on the node. The last line should show quanties zero
@@ -770,7 +777,9 @@ spec:
 EOF
 ----
 
-* Apply the pod creation file and review the pod's logs and node assignment: `kubectl apply -f cuda-vector-add.yaml && kubectl logs cuda-vector-add && kubectl get pods -o wide | grep cuda-vector-add`
+* Apply the pod creation file and review the pod's logs and node assignment: `kubectl apply -f cuda-vector-add.yaml` 
+* Check the pod until the pod shows a status of "Completed": `kubectl get pods -o wide | grep cuda-vector-add`
+* Review the log output of the container: `kubectl logs cuda-vector-add` 
 ** Output should include phrases such as `CUDA kernel launch` and `Test PASSED`, as well as show that the pod ran on this node
 * Remove the pod: `kubectl delete -f cuda-vector-add.yaml`
 
