@@ -624,14 +624,14 @@ kubectl get pods -n kube-system -l app=oidc-gangway -o wide
 [[anchor-110]]
 === Enable GPU availability for CaaS Platform
 
-.Validate the nodes that are equiped with Nvidia GPUs
+.Validate the nodes that are equipped with Nvidia GPUs
 ----
 for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH sudo lspci | grep -i nvidia; done
 ----
 
-.Prepare the Nvidia GPU equiped Worker Node
+.Prepare the Nvidia GPU equipped Worker Node
 
-NOTE: Perform the following steps entirely through for each Nvidia GPU equiped node
+NOTE: Perform the following steps entirely through for each Nvidia GPU equipped node
 
 * Verify the model of Nvidia GPU: `sudo lspci | grep -i nvidia`
 ** Check against: https://developer.nvidia.com/cuda-gpus to ensure the GPU is CUDA compatible
@@ -686,7 +686,7 @@ Model:          X
 Brand:          Y
 ----
 
-### Process to install nvidia-container-toolkit on any nodes equiped with GPUs
+### Process to install nvidia-container-toolkit on any nodes equipped with GPUs
 
 NOTE: Start the process on the CaaS Platform Administrative Workstation
 
@@ -711,7 +711,7 @@ scp -r etc/ $WORKER:~/
 scp -r usr/ $WORKER:~/
 ----
 
-==== Perform the following steps on each GPU equiped Worker Node:
+==== Perform the following steps on each GPU equipped Worker Node:
 
 * Copy the Nvidia Container Toolkit into place:
 ----
@@ -746,7 +746,7 @@ No running processes found
 * Install the Nvidia Kubernetes device plugin 
 * `kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/1.0.0-beta/nvidia-device-plugin.yml`
 
-* Set this variable to the CaaSP node name (not the FQDN) for the next several commands, then repeat for each GPU equiped worker node: `export WORKER=`
+* Set this variable to the CaaSP node name (not the FQDN) for the next several commands, then repeat for each GPU equipped worker node: `export WORKER=`
 
 * Ensure the correct number of GPUs are recognized on the worker node: `kubectl describe node $WORKER | egrep "gpu|Unschedulable"`
 ** Output should include three lines beginning with `nvidia.com/gpu`. The first two should match the number of GPUs on the node. The last line should show quanties zero
