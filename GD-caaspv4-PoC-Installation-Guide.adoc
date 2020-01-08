@@ -628,6 +628,119 @@ sudo ceph auth get-or-create client.${CephUser} mon 'allow r' osd "allow class-r
 ----
 
 
+.Gather the keys for the SES admin and data-hub-demo users
+----
+ceph auth ls  | egrep -A1 "${CephUser}|admin"
+----
+* Example ouput:
+----
+client.admin
+        key: AQCliWtcAAAAABAAMRgUejj5FCG/bvLBpmKDUw==
+----
+
+.Encode each of the keys (admin key used as an example):
+----
+echo -n "AQCliWtcAAAAABAAMRgUejj5FCG/bvLBpmKDUw==" | base64
+----
+* Example ouput:
+`QVFDbGlXdGNBQUFBQUJBQU1SZ1Vlamo1RkNHL2J2TEJwbUtEVXc9PQ==`
+
+
+NOTE: The next commands should be run on the Management Workstation
+
+.Create the ceph-admin-secret
+* Set this variable with the base64 encoded admin key: `ADMIN_KEY=""`
+** For example: ADMIN_KEY="QVFDbGlXdGNBQUFBQUJBQU1SZ1Vlamo1RkNHL2J2TEJwbUtEVXc9PQ=="
+----
+cat <<EOF> ceph-secret-admin.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ceph-secret-admin
+  namespace: default
+type: "kubernetes.io/rbd"
+data:
+  key: $ADMIN_KEY
+EOF
+----
+
+* Set this variable with the base64 encoded hpc-rbd-user key: `CEPH_USER_KEY=""`
+** For example: CEPH_USER_KEY="QVFEaVJNdGR6K3dYTlJBQUhhTmRqS1c1eTl5MUd2VWkyZjhnS2c9PQ=="
+----
+cat <<EOF> ceph-secret-hpc-rbd-user.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ceph-secret-hpc-rbd-user
+  namespace: default
+type: "kubernetes.io/rbd"
+data:
+  key: $CEPH_USER_KEY
+EOF
+----
+
+.Apply the two Kubernetes secrets:
+* `kubectl apply -n data-hub -f ceph-secret-admin.yaml`
+* `kubectl apply -n data-hub -f ceph-secret-hpc-rbd-user.yaml`
+
+.Create the SES6 storage class:
+* Set this variable to the ssh credentials for the SES Administrative Workstation: `SSH_SES_ADMIN=""`
+** For example: SSH_SES_ADMIN=root@admin.suse.hpc.local
+* Set the MONITORS variable to include the IP addresses and ports for the SES monitor nodes:
+----
+MONITORS=`ssh $SSH_SES_ADMIN "grep mon_host /etc/ceph/ceph.conf" | awk -F" = " '{print$2}' | sed 's/\, /:6789\,/g' | sed 's/$/:6789/'`
+echo $MONITORS
+----
+** The output should be similar to: `172.29.147.41:6789,172.29.147.40:6789,172.29.147.42:6789`
+
+* Create the SES6 storage class
+----
+cat <<EOF> hpc-rbd-sc.yaml
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: ses-rbd-sc
+  annotations:
+     storageclass.beta.kubernetes.io/is-default-class: "true"
+provisioner: kubernetes.io/rbd
+parameters:
+  monitors: $MONITORS
+  adminId: admin
+  adminSecretName: ceph-secret-admin
+  adminSecretNamespace: default
+  userId: hpc-rbd-user
+  userSecretName: ceph-secret-hpc-rbd-user
+  pool: hpc-rbd-pool
+EOF
+----
+
+* Apply the kubernetes storage class:
+`kubectl apply -f ses-rbd-sc.yaml`
+* Verify the SES6 storage class is the default:
+`kubectl get storageclass`
+
+.Create a test PVC and ensure it can be bound:
+----
+cat <<EOF> test-pvc.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: test-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+EOF
+----
+* Apply the kubernetes PVC:
+`kubectl apply -f test-pvc.yaml`
+* In less than one minute, the PVC should show that is "Bound" to "VOLUME":
+`kubectl get pvc`
+* Delete the PVC after it has shown to be Bound:
+`kubectl delete -f test-pvc.yaml`
+
 
 
 [[anchor-100]]
