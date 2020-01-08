@@ -603,7 +603,7 @@ kubectl get pods -n kube-system -l app=oidc-gangway -o wide
 [[anchor-90]]
 === Configure the Ceph storage class
 
-NOTE: Perform the next set of commands from the SES Administrative Workstation.
+NOTE: The following set of commands from the SES Administrative Workstation.
 
 TIP: Use the command `ceph -s | grep osds` to find the number of OSDS in your ceph cluster. Use that information with the ceph osd calculator (https://ceph.com/pgcalc/) to get the number of Placement Groups "Suggested PG Count" that will be appropriate for the pool (CephPGSize)
 
