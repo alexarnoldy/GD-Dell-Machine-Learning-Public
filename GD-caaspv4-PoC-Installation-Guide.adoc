@@ -338,7 +338,7 @@ TIP: In some cases the command above will fail to resolve to the correct IP addr
 
 
 [[anchor-50]]
-=== Prepare to form CaaS Platform cluster
+=== Prepare the nodes to be integrated into the CaaS Platform cluster
 
 NOTE: The following commands must be run from the Management Workstation and require a .all_nodes file that contains the fully qualified hostnames of all cluster nodes. 
 
@@ -602,6 +602,31 @@ kubectl get pods -n kube-system -l app=oidc-gangway -o wide
 
 [[anchor-90]]
 === Configure the Ceph storage class
+
+NOTE: Perform the next set of commands from the SES Administrative Workstation.
+
+TIP: Use the command `ceph -s | grep osds` to find the number of OSDS in your ceph cluster. Use that information with the ceph osd calculator (https://ceph.com/pgcalc/) to get the number of Placement Groups "Suggested PG Count" that will be appropriate for the pool (CephPGSize)
+
+.If needed, create the SES (Ceph) storage pool and enable RBD support
+----
+export CephPool="hpc-rbd-pool"
+export CephPGSize="64"
+ceph osd pool create ${CephPool} ${CephPGSize}
+ceph osd pool ls
+ceph osd pool application enable ${CephPool} rbd
+ceph osd pool application get ${CephPool}
+----
+
+TIP: Use the command `ceph auth ls | grep hpc-rbd-user` to ensure the user hasn't already been created. If it has, skip this step and continue onto "Gather the keys for the SES admin and data-hub-demo users"
+
+.If needed, Create the user that will manage the pool
+
+----
+export CephUser="hpc-rbd-user" 
+export CephPool="hpc-rbd-pool"
+sudo ceph auth get-or-create client.${CephUser} mon 'allow r' osd "allow class-read object_prefix rbd_children, allow rwx pool=${CephPool}" -o /etc/ceph/ceph.client.${CephUser}.keyring
+----
+
 
 
 
