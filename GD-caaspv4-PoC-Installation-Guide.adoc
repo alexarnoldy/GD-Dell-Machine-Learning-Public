@@ -545,7 +545,7 @@ IMPORTANT: If any nodes will require additional configuration such as GPU integr
 * `skuba cluster status`
 
 ==== Enable the use of kubectl from the Management Workstation
-* `echo export KUBECONFIG=/home/geeko/caaspv4-cluster/admin.conf >> ~/.bashrc`
+* `echo export KUBECONFIG=/home/geeko/suse-caasp-hpc/admin.conf >> ~/.bashrc`
 * `. ~/.bashrc` 
 * `kubectl get nodes`
 
@@ -936,7 +936,7 @@ EOF
 ** Generally skuba will install the packages, then launch kubeadm
 ** kubeadm will set up the K8s components
 ** If the failure occurs after kubeadm takes over try to replicate the failure:
-*** scp kubeadm-init.conf from the cluster directory (caaspv4-cluster in this doc) to /tmp on the master node
+*** scp kubeadm-init.conf from the cluster directory (suse-caasp-hpc in this doc) to /tmp on the master node
 *** Run the `kubeadm init` command that is in /var/log/messages
 *** kubeadm should give reasonably actionable error messages
 
