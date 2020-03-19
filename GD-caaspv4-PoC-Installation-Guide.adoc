@@ -535,9 +535,9 @@ IMPORTANT: If any nodes will require additional configuration such as GPU integr
 for WORKER_FQDN in `grep wrkr ~/autoyast_templates/.all_nodes`; do \
 eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
-WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; \
+WORKER=`echo ${WORKER_FQDN} | awk -F. '{print$1}'`; \
 skuba node join --role worker --user geeko --sudo \
---target $WORKER_FQDN $WORKER; \
+--target ${WORKER_FQDN} ${WORKER}; \
 kill ${SSH_AGENT_PID}
 done
 ----
@@ -549,9 +549,9 @@ ssh-add /home/geeko/.ssh/id_rsa
 export WORKER_FQDN=
 ----
 ----
-WORKER=`echo $WORKER_FQDN | awk -F. '{print$1}'`; \
+WORKER=`echo ${WORKER_FQDN} | awk -F. '{print$1}'`; \
 skuba node join --role worker --user geeko --sudo \
---target $WORKER_FQDN $WORKER
+--target ${WORKER_FQDN} ${WORKER}
 kill ${SSH_AGENT_PID}
 ----
 
@@ -568,13 +568,13 @@ IMPORTANT: If any nodes will require additional configuration such as GPU integr
 * `kubectl get nodes`
 
 ////
-.For any VM nodes, snapshot immediately after instantiating the cluster
-* Create snapshot script
+.For any VM nodes, snapshot immediately after instantiating the cluster (assumes only the cluster nodes VMs contain the string "suse.hpc.local")
+* Create snapshot script from the KVM host:
 ----
 cat <<EOF> /tmp/snap_after_cluster.sh
 /bin/bash
 sudo virsh list --all | grep "suse.hpc.local" | awk '{print$2}' > /tmp/k8s_nodes
-for K8S_NODE in `cat /tmp/k8s_nodes`; do sudo virsh snapshot-create-as \$K8S_NODE --name "after forming cluster"; done
+for K8S_NODE in `cat /tmp/k8s_nodes`; do sudo virsh snapshot-create-as \${K8S_NODE} --name "after forming cluster"; done
 EOF
 ----
 
