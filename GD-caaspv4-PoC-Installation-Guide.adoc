@@ -66,6 +66,8 @@ NOTE: Swap will likely not be needed for the Management Workstation. Swap can be
 ** Check the boxes for `Run NTP as daemon` and `Save NTP Configuration`
 ** Select `Accept`
 
+CAUTION: The remaining procedures in this document assume a username "geeko" for several important steps. If a different username is preferred, take care to adjust those steps later in this document, especially around initializing and bootstrapping the CaaS Platform cluster.
+
 * Create New User:
 ** User's Full Name and Username: geeko
 
@@ -96,6 +98,9 @@ sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
 *** `Accept`, then `OK`
 
 ==== Create a file to reference all of the CaaS Platform cluster nodes
+
+IMPORTANT: These procedures utilize the pattern "mstr" to identify master nodes and "wrkr" to identify worker nodes. In addition, the CaaS Platform cluster name will be set to the fully qualified domain name of the nodes. Configure the .all_nodes file accordingly. If these conventions are not desired, take care to adjust the procedures covered later in this document; specifically but not limited to bootstrapping the cluster.
+
 * `mkdir ~/autoyast_templates`
 ----
 cat <<EOF> ~/autoyast_templates/.all_nodes
@@ -474,6 +479,9 @@ NOTE: --control-plane defines the FQDN of the load balancer. The second argument
 ////
 
 * Set the FIRST_MASTER_FQDN (set to mstr1.suse.hpc.local in this guide) and FIRST_MASTER (set to mstr1 in this guide) and bootstrap the cluster:
+
+CAUTION: These procedures utilize the pattern "mstr" to identify master nodes and "wrkr" to identify worker nodes. Make adjustments, as appropriate to match the fully qualified hostnames specified in the .all_nodes file.
+
 ----
 export FIRST_MASTER_FQDN=$(grep mstr ~/autoyast_templates/.all_nodes | head -1)
 export FIRST_MASTER=$(echo ${FIRST_MASTER_FQDN} | awk -F. '{print$1}')
