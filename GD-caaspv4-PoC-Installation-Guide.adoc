@@ -613,17 +613,18 @@ kubectl get pods -n kube-system -l app=oidc-gangway -o wide
 
 ==== Test authentication:
 * `skuba auth login -s https://mstr.suse.hpc.local:32000`
+** Use the uid from oidc-dex-config configmap, i.e. if the user "suse" was specified in `bindDN: uid=suse` and the password "suse1234" was specified in `bindPW: suse1234`
 * Remove the kubeconf.txt file, if the login was successful: `rm kubeconf.txt`
 * Use the Chromium browser to test logging into Gangway at https://mstr.suse.hpc.local:32001
-** Log in with a user id, such as suse, rather than email address
+** Log in with a same user (rather than email address, as it shows) and password, as was used with Dex
 ** Try using Incognito Mode if cookie errors prevent logging in
 
 [[anchor-90]]
 === Configure the Ceph storage class
 
-NOTE: The following set of commands from the SES Administrative Workstation.
+NOTE: The following set of commands from the *SES Administrative Workstation*.
 
-TIP: Use the command `ceph -s | grep osds` to find the number of OSDS in your ceph cluster. Use that information with the ceph osd calculator (https://ceph.com/pgcalc/) to get the number of Placement Groups "Suggested PG Count" that will be appropriate for the pool (CephPGSize)
+TIP: Use the command `ceph -s | grep osds` to find the number of OSDS in the ceph cluster. Use that information with the ceph osd calculator (https://ceph.com/pgcalc/) to get the number of Placement Groups "Suggested PG Count" that will be appropriate for the pool (CephPGSize)
 
 .If needed, create the SES (Ceph) storage pool and enable RBD support
 ----
@@ -664,7 +665,7 @@ echo -n "AQCliWtcAAAAABAAMRgUejj5FCG/bvLBpmKDUw==" | base64
 `QVFDbGlXdGNBQUFBQUJBQU1SZ1Vlamo1RkNHL2J2TEJwbUtEVXc9PQ==`
 
 
-NOTE: The next commands should be run on the Management Workstation
+NOTE: The next commands should be run on the *CaaS Platform Management Workstation*
 
 .Create the ceph-admin-secret
 * Set this variable with the base64 encoded admin key: `ADMIN_KEY=""`
@@ -767,7 +768,7 @@ EOF
 ==== Edit the pod security policy
 * `kubectl edit psp suse.caasp.psp.unprivileged`
 *** Add the following elements as part of the `spec:`
-**** Note: If `allowPrivilegeEscalation` is already defined, ensure it is set to true
+**** Note: If `allowPrivilegeEscalation` is already defined, ensure it is set to true and add the allowedCapabilities
 ------
   allowPrivilegeEscalation: true
   allowedCapabilities:
