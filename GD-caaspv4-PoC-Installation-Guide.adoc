@@ -783,8 +783,11 @@ EOF
 
 .Validate the nodes that are equipped with Nvidia GPUs
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH sudo lspci | grep -i nvidia; done
+for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo -n $EACH": "; ssh $EACH sudo lspci | grep -i nvidia; echo ""; done
 ----
+
+.Ensure the GPU equipped Worker Nodes are cordoned (marked with Ready,SchedulingDisabled): `kubectl get nodes`
+* If any nodes need to be cordoned, use th command: `kubectl cordon <node name>`
 
 .Prepare the Nvidia GPU equipped Worker Node
 
