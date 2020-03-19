@@ -485,7 +485,7 @@ skuba node bootstrap --user geeko --sudo --target ${FIRST_MASTER_FQDN} ${FIRST_M
 kill ${SSH_AGENT_PID}
 ----
 
-NOTE: This command bootstraps the CaaS Platform cluster with mstr1.suse.hpc.local as the first master node. Internally, Kubernetes will assign this node the name "mstr1"
+NOTE: This command bootstraps the CaaS Platform cluster (using mstr1.suse.hpc.local in this guide) as the first master node. Internally, Kubernetes will use the host nodename as the Kubernetes cluster nodename (mstr1 in this guide).
 
 ==== Join additional Master Nodes to the cluster
 * To join all remainging Master Nodes in the ~/autoyast_templates/.all_nodes file, cd into the cluster directory (i.e. ~/suse-hpc-local/), then:
@@ -495,9 +495,10 @@ NOTE: This command bootstraps the CaaS Platform cluster with mstr1.suse.hpc.loca
 for MASTER_FQDN in `grep mstr ~/autoyast_templates/.all_nodes | tail -n+2`; do \
 eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
-MASTER=`echo $MASTER_FQDN | awk -F. '{print$1}'`; \
+## This will use the host nodename as the Kubernetes nodename
+MASTER=`echo ${MASTER_FQDN} | awk -F. '{print$1}'`; \
 skuba node join --role master --user geeko --sudo \
---target $MASTER_FQDN $MASTER; \
+--target ${MASTER_FQDN} ${MASTER}; \
 kill ${SSH_AGENT_PID}
 done
 ----
@@ -511,9 +512,9 @@ ssh-add /home/geeko/.ssh/id_rsa
 export MASTER_FQDN=
 ----
 ----
-MASTER=`echo $MASTER_FQDN | awk -F. '{print$1}'`; \
+MASTER=`echo ${MASTER_FQDN} | awk -F. '{print$1}'`; \
 skuba node join --role master --user geeko --sudo \
---target $MASTER_FQDN $MASTER
+--target ${MASTER_FQDN} ${MASTER}
 kill ${SSH_AGENT_PID}
 ----
 
