@@ -450,16 +450,20 @@ for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH sudo
 ----
 ////
 
-* Install the CaaS Platform management software and initialize the cluster definition
+* Set the `CONTROL_PLANE` (set to mstr.suse.hpc.local in this guide) and `CLUSTER_NAME` (set to suse-caasp-hpc in this guide) variables and install the CaaS Platform management software and initialize the cluster definition:
+----
+export CONTROL_PLANE=
+export CLUSTER_NAME=
+----
 ----
 eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
 sudo zypper --non-interactive install -t pattern SUSE-CaaSP-Management
-cd ~; skuba cluster init --control-plane mstr.suse.hpc.local suse-caasp-hpc && cd ~/suse-caasp-hpc
+cd ~; skuba cluster init --control-plane ${CONTROL_PLANE} ${CLUSTER_NAME} && cd ~/${CLUSTER_NAME}
 kill ${SSH_AGENT_PID}
 ----
 
-NOTE: --control-plane defines the FQDN of the load balancer. The second argument is the name to be givent to the new cluster.
+NOTE: --control-plane defines the FQDN of the load balancer. The second argument is the name to be given to the new cluster.
 
 ////
 * Ensure the SSH Agent is running and has the geeko user's RSA key loaded
@@ -469,11 +473,15 @@ NOTE: --control-plane defines the FQDN of the load balancer. The second argument
 **** `ssh-add /home/geeko/.ssh/id_rsa`
 ////
 
-* Bootstrap the cluster 
+* Set the FIRST_MASTER_FQDN (set to mstr1.suse.hpc.local in this guide) and FIRST_MASTER (set to mstr1 in this guide) and bootstrap the cluster:
+----
+export FIRST_MASTER_FQDN=$(grep mstr ~/autoyast_templates/.all_nodes | head -1)
+export FIRST_MASTER=$(echo ${FIRST_MASTER_FQDN} | awk -F. '{print$1}')
+----
 ----
 eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
-skuba node bootstrap --user geeko --sudo --target mstr1.suse.hpc.local mstr1
+skuba node bootstrap --user geeko --sudo --target ${FIRST_MASTER_FQDN} ${FIRST_MASTER}
 kill ${SSH_AGENT_PID}
 ----
 
@@ -483,6 +491,7 @@ NOTE: This command bootstraps the CaaS Platform cluster with mstr1.suse.hpc.loca
 * To join all remainging Master Nodes in the ~/autoyast_templates/.all_nodes file, cd into the cluster directory (i.e. ~/suse-hpc-local/), then:
 
 ----
+## Start by gathering all of the master nodes, less the first one
 for MASTER_FQDN in `grep mstr ~/autoyast_templates/.all_nodes | tail -n+2`; do \
 eval "$(ssh-agent -t 180)"
 ssh-add /home/geeko/.ssh/id_rsa
