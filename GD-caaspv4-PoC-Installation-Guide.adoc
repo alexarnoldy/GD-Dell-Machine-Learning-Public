@@ -789,24 +789,33 @@ for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo -n $EACH": "; ssh $EA
 .Ensure the GPU equipped Worker Nodes are cordoned (marked with Ready,SchedulingDisabled): `kubectl get nodes`
 * If any nodes need to be cordoned, use th command: `kubectl cordon <node name>`
 
-.Prepare the Nvidia GPU equipped Worker Node
+### Prepare the Nvidia GPU equipped Worker Node
 
-NOTE: Perform the following steps entirely through for each Nvidia GPU equipped node
+NOTE: Complete the following steps for *each Nvidia GPU equipped node* before continuing to the next section (Process to install nvidia-container-toolkit on Nvidia GPU equipped nodes)
 
 * Verify the model of Nvidia GPU: `sudo lspci | grep -i nvidia`
 ** Check against: https://developer.nvidia.com/cuda-gpus to ensure the GPU is CUDA compatible
 
-* Install the appropriate kernel header files for the kernel version
+* Install the appropriate kernel header files for the kernel version and variant
 ** `uname -r`
-*** Output is in the form of <version>-<variant>, i.e. 4.12.14-197.26-default
-** `sudo zypper --non-interactive install kernel-default-devel=4.12.14-197.26`
-*** Format is sudo zypper --non-interactive install kernel-<variant>-devel=<version>
+*** Output is in the form of <version>-<variant>, i.e. for "4.12.14-197.26-default" the version would be "4.12.14-197.26" and the version would be "default"
+** Set these variables:
+----
+export VERSION=
+export VARIANT=
+----
+** Install the  packages: `sudo zypper --non-interactive install kernel-${VARIANT}-devel=${VERSION}`
 
-* Install the Cuda toolkit:
+
+* Install the Cuda toolkit (currently specific to SLES 15 SP1):
+** Update the needed repositories:
 ----
 sudo zypper addrepo http://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/cuda-sles15.repo
 sudo SUSEConnect --product PackageHub/15.1/x86_64
 sudo SUSEConnect --product sle-module-desktop-applications/15.1/x86_64
+----
+** Refresh the repositories and install cuda:
+----
 sudo zypper refresh     
 sleep 5
 sudo zypper --non-interactive install cuda
@@ -814,7 +823,7 @@ sudo zypper --non-interactive install cuda
 
 * Verify which packages and versions of the Cuda toolkit were installed `sudo zypper search --installed cuda`
 
-* When the driver is correctly loaded it will show the version in: `cat /proc/driver/nvidia/version`
+* When the driver is correctly loaded it will show version information in: `cat /proc/driver/nvidia/version`
 ** If the driver hasn't loaded, reboot the node and check again
 
 * Check that you can access the GPU:
@@ -847,9 +856,9 @@ Model:          X
 Brand:          Y
 ----
 
-### Process to install nvidia-container-toolkit on any nodes equipped with GPUs
+### Process to install nvidia-container-toolkit on Nvidia GPU equipped nodes
 
-NOTE: Start the process on the CaaS Platform Administrative Workstation
+NOTE: Start the process on the *CaaS Platform Administrative Workstation*
 
 * Download the required package via a CentOS container:
 ----
@@ -862,17 +871,21 @@ cp /var/cache/yum/x86_64/7/nvidia-container-runtime/packages/nvidia-container-to
 exit
 ----
 
-* Edit  the etc/nvidia-container-runtime/config.toml file to uncomment or insert the line: `user = "root:video"`
+* Edit  the `etc/nvidia-container-runtime/config.toml` file to uncomment or insert the line: `user = "root:video"`
 
 * Create the unrpm script from: https://github.com/openSUSE/obs-build/blob/master/unrpm
 * Unpack the rpm: `bash unrpm nvidia-container-toolkit-1.0.5-2.x86_64.rpm`
 * If running this on another node (i.e. the Administrative Workstation), SCP the files to the GPU Worker Node:
-** Set this variable to the FQDN of the GPU Worker Nodes `export WORKER=`
-** SCP the files to the Worker Node:
+** Set the WORKER variable to the FQDN of one of the GPU equipped Worker Nodes and SCP the files to that Worker Node:
+----
+export WORKER=
+----
+
 ----
 scp -r etc/ $WORKER:~/
 scp -r usr/ $WORKER:~/
 ----
+*** Repeat for all remainin GPU equipped Worker Nodes
 
 ==== Perform the following steps on each GPU equipped Worker Node:
 
@@ -897,7 +910,11 @@ sudo chmod 0666 /dev/nvidia*
 sudo chown root:video /dev/nvidia*
 ----
 
-* (Optional) Test that a container can access the GPU: `sudo podman run --rm nvidia/cuda nvidia-smi`
+* (Optional) Install Podman on the Worker Node and test that a container can access the GPU: 
+----
+sudo zypper --non-interactive install podman
+sudo podman run --rm --net=host nvidia/cuda nvidia-smi
+----
 ** Should get an output that contains:
 ----
 NVIDIA-SMI XXX.YY Driver Version: XXX.YY CUDA Version: XX.Y
