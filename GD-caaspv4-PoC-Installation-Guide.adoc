@@ -933,7 +933,7 @@ No running processes found
 
 NOTE: If the previous command also showed `Unschedulable` as `true`, uncordon the node before continuing: `kubectl uncordon $WORKER`
 
-* Ensure that CaaS Platform can run a GPU enabled pod on the node:
+.Ensure that CaaS Platform can run a GPU enabled pod on the node:
 
 * Set this variable to the number of GPUs on this node: `export GPUS=`
 * Create the cuda-vector-add.yaml file:
@@ -963,7 +963,7 @@ EOF
 ** Output should include phrases such as `CUDA kernel launch` and `Test PASSED`, as well as show that the pod ran on the correct node
 * Remove the pod: `kubectl delete -f cuda-vector-add.yaml`
 
-
+### The deployment and integration are complete!
 
 
 [[anchor-120]]
