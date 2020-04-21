@@ -347,6 +347,16 @@ TIP: In some cases the command above will fail to resolve to the correct IP addr
 
 NOTE: The following commands must be run from the Management Workstation and require a .all_nodes file that contains the fully qualified hostnames of all cluster nodes. 
 
+.Populate the Admin node's known_hosts file with the public keys of the cluster nodes:
+----
+cat /dev/null > ~/.ssh/known_hosts
+for EACH in $(cat ~/autoyast_templates/.all_nodes)
+do 
+      ssh-keyscan ${EACH} >> ~/.ssh/known_hosts
+      ssh-keyscan $(getent hosts ${EACH} | awk '{print$1}') >> ~/.ssh/known_hosts
+done
+----
+
 .Check the time skew of all nodes to be added to the cluster
 
 * Ensure all nodes respond and the time skew is within 1 second: 
