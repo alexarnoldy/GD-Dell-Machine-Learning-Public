@@ -422,7 +422,7 @@ done
 ==== Ensure swap is not enabled on any of the CaaS Platform hosts
 
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH cat /proc/swaps; echo ""; done
+for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH grep -v Filename /proc/swaps; echo ""; done
 ----
 ** Should return a header line for each node, but nothing else
 
