@@ -374,13 +374,18 @@ rm /tmp/*time-check
 
 
 .Enable passwordless sudo access for the geeko user
-* Run the loop below and execute this command for each node: `sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/01geeko"; exit`
-
-NOTE: This step also verifies that DNS resolution is configured correctly. If resolution fails, ensure DNS records are correct and that the Management Workstation is using the correct DNS server
-
+* Run the loop below and execute the command that follows it for each node:
 ----
 for EACH in `cat ~/autoyast_templates/.all_nodes`; do ssh $EACH ; done
 ----
+* Execute this command for each node: 
+----
+sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/01geeko"; exit
+----
+
+NOTE: This step also verifies that DNS resolution is configured correctly. If resolution fails, ensure DNS records are correct and that the Management Workstation is using the correct DNS server
+
+
 
 .Verify passwordless SSH and sudo capabilities for the geeko user on all nodes
 ----
