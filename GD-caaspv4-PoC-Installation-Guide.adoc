@@ -82,7 +82,8 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 ==== Finish preparing the Management workstation:
 * Enable passwordless sudo for the user geeko
 ----
-sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01geeko"
+export USER="geeko"
+sudo bash -c "echo '${USER} ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01${USER}"
 ----
 * `ssh-keygen`
 ** Accept the defaults, though a passphrase can be configured here, if desired
