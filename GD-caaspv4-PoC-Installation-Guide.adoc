@@ -82,8 +82,9 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 ==== Finish preparing the Management workstation:
 * Enable passwordless sudo for the user geeko
 ----
-export USER="geeko"
-sudo bash -c "echo '${USER} ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/01${USER}"
+export USERNAME="geeko"
+echo '${USERNAME}ALL=(ALL) NOPASSWD: ALL' > /tmp/01${USERNAME}
+sudo mv /tmp/01${USERNAME} /etc/sudoers.d/
 ----
 * `ssh-keygen`
 ** Accept the defaults, though a passphrase can be configured here, if desired
@@ -142,7 +143,12 @@ TIP: This step is primarily intended to support AutoYaST installation. However, 
 
 IMPORTANT: If port 80 is in use, specify a different port with the `-p <container port>:<host port>`` option, or a random high port with the `-P` option in the following command
 
-* Launch nginx webserver container: `cd ~; sudo podman run --name autoyast-nginx -v /home/geeko/autoyast_templates:/usr/share/nginx/html:ro -p 80:80 -d nginx:latest`
+* Launch nginx webserver container: 
+----
+export USERNAME="geeko"
+cd ~ 
+sudo podman run --name autoyast-nginx -v /home/${USERNAME}/autoyast_templates:/usr/share/nginx/html:ro -p 80:80 -d nginx:latest
+----
 
 IMPORTANT: This container WILL NOT automatically start after rebooting the Management Workstation. Use `sudo podman start autoyast-nginx` to start it manually
 
@@ -190,12 +196,21 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 
 ==== Finish preparing the first Dell servers:
 
-* From the Management Workstation, add the geeko@kubeadmin SSH credentials to the server: `ssh-copy-id -i /home/geeko/.ssh/id_rsa.pub <hostname>`
+* From the Management Workstation, add the geeko@kubeadmin SSH credentials to each server: 
+----
+export USERNAME="geeko"
+export HOSTNAME=""
+ssh-copy-id -i /home/${USERNAME}/.ssh/id_rsa.pub ${HOSTNAME}
+----
 
-NOTE: Peform the following steps on each of the two installed servers
+NOTE: SSH to, and peform the following steps on each of the two installed servers
 
-.Enable passwordless sudo access for the geeko user
-* `sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/01geeko"`
+* Enable passwordless sudo access for the geeko user
+----
+export USERNAME="geeko"
+echo '${USERNAME}ALL=(ALL) NOPASSWD: ALL' > /tmp/01${USERNAME}
+sudo mv /tmp/01${USERNAME} /etc/sudoers.d/
+----
 
 ////
 Shouldn't be needed now that it's done during the install
