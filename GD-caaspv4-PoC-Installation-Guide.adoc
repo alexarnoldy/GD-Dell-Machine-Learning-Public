@@ -104,16 +104,21 @@ sudo mv /tmp/01${USERNAME} /etc/sudoers.d/
 IMPORTANT: These procedures utilize the pattern "mstr" to identify master nodes and "wrkr" to identify worker nodes. In addition, the CaaS Platform cluster name will be set to the fully qualified domain name of the nodes. Configure the .all_nodes file accordingly. If these conventions are not desired, take care to adjust the procedures covered later in this document; specifically but not limited to bootstrapping the cluster.
 
 * `mkdir ~/autoyast_templates`
+* Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
+* Set the worker nodes' hostname prefix, i.e. worker or wrkr: `export WORKER_PREFIX=`
+* Set the cluster nodes' fully qualified domain name, i.e. suse.hpc.local: `export DOMAIN=`
 ----
 cat <<EOF> ~/autoyast_templates/.all_nodes
-mstr1.suse.hpc.local
-mstr2.suse.hpc.local
-mstr3.suse.hpc.local
-wrkr1.suse.hpc.local
-wrkr2.suse.hpc.local
-wrkr3.suse.hpc.local
-wrkr4.suse.hpc.local
+${MASTER_PREFIX}1.${DOMAIN}
+${MASTER_PREFIX}2.${DOMAIN}
+${MASTER_PREFIX}3.${DOMAIN}
+${WORKER_PREFIX}1.${DOMAIN}
+${WORKER_PREFIX}2.${DOMAIN}
+${WORKER_PREFIX}3.${DOMAIN}
+${WORKER_PREFIX}4.${DOMAIN}
 EOF
+
+cp -p ~/autoyast_templates/.all_nodes ~/
 ----
 
 ==== Optionally, setup a local DNS/DHCP container
@@ -277,11 +282,13 @@ NOTE: Peform the following steps on each of the two installed servers
 NOTE: Peform the following steps on the Management Workstation
 
 * Make a copy of the first servers' AutoYaST file for each of the remaining nodes, naming them with the hostname of the node and ending in .xml
-** An example of this operation, might be:
+** An example of this operation for two additional master and three additional worker nodes, might be:
+* Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
+* Set the worker nodes' hostname prefix, i.e. worker or wrkr: `export WORKER_PREFIX=`
 ----
 cd ~/autoyast_templates/
-for NODE in mstr2 mstr3; do cp -p mstr1.xml ${NODE}.xml; done
-for NODE in wrkr2 wrkr3 wrkr4; do cp -p wrkr1.xml ${NODE}.xml; done
+for NODE in ${MASTER_PREFIX}2 ${MASTER_PREFIX}3; do cp -p ${MASTER_PREFIX}1.xml ${NODE}.xml; done
+for NODE in ${WORKER_PREFIX}2 ${WORKER_PREFIX}3 ${WORKER_PREFIX}4; do cp -p ${WORKER_PREFIX}1.xml ${NODE}.xml; done
 ----
 
 CAUTION: Take care not to mix up the two different types of servers. Applying the Dell R640 AutoYaST file to a Dell R740, or vise versa, could yeild unexpected results.
@@ -294,11 +301,13 @@ NOTE: Peform the following steps once for each of the two installed servers (i.e
 
 * Update the hostnames in the nodes' XML files:
 ** Set this variable to the hostname (not the FQDN) of the installed server (i.e. the installed Dell R640): `export FIRST_HOSTNAME=`
+** Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
+** Set the worker nodes' hostname prefix, i.e. worker or wrkr: `export WORKER_PREFIX=`
 ** Execute this loop:
 ----
 cd ~/autoyast_templates
 rm -f /tmp/hostname_update 
-for EACH in $(ls -1 mstr* wrkr*)
+for EACH in $(ls -1 ${MASTER_PREFIX}* ${WORKER_PREFIX}*)
 do 
 NEW_HOSTNAME=$(echo ${EACH} | awk -F. '{print$1}')
 echo "sed -i 's/${FIRST_HOSTNAME}/${NEW_HOSTNAME}/g' ${EACH}" >> /tmp/hostname_update
@@ -310,11 +319,13 @@ done
 ** Set this variable to the IP address of the installed server: `export FIRST_IP=`
 
 TIP: Get the correct IP address with the command: `grep ipaddr <hostname>.xml` where <hostname> is the first node installed
+** Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
+** Set the worker nodes' hostname prefix, i.e. worker or wrkr: `export WORKER_PREFIX=`
 ** Execute this loop:
 ----
 cd ~/autoyast_templates
 rm -f /tmp/IP_update 
-for EACH in $(ls -1 mstr* wrkr*)
+for EACH in $(ls -1 ${MASTER_PREFIX}* ${WORKER_PREFIX}*)
 do 
 NEW_IP=$(getent hosts $(echo ${EACH} | awk -F. '{print$1}') | awk '{print$1}')
 echo "sed -i 's/${FIRST_IP}/${NEW_IP}/g' ${EACH}" >> /tmp/IP_update
@@ -366,7 +377,7 @@ NOTE: The following commands must be run from the Management Workstation and req
 .Populate the Admin node's known_hosts file with the public keys of the cluster nodes:
 ----
 cat /dev/null > ~/.ssh/known_hosts
-for EACH in $(cat ~/autoyast_templates/.all_nodes)
+for EACH in $(cat ~/.all_nodes)
 do 
       ssh-keyscan ${EACH} >> ~/.ssh/known_hosts
       ssh-keyscan $(getent hosts ${EACH} | awk '{print$1}') >> ~/.ssh/known_hosts
@@ -378,7 +389,7 @@ done
 * Ensure all nodes respond and the time skew is within 1 second: 
 ----
 rm /tmp/*time-check
-for EACH in `cat ~/autoyast_templates/.all_nodes` 
+for EACH in `cat ~/.all_nodes` 
 do bash -c "ssh $EACH date > /tmp/$EACH.time-check & " 
 done 
 date > /tmp/$(hostname -f).time-check 
@@ -392,11 +403,11 @@ rm /tmp/*time-check
 .Enable passwordless sudo access for the geeko user
 * Run the loop below and execute the command that follows it for each node:
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do ssh $EACH ; done
+for EACH in `cat ~/.all_nodes`; do ssh $EACH ; done
 ----
 * Execute this command for each node: 
 ----
-sudo bash -c "echo 'geeko ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/01geeko"; exit
+sudo bash -c "echo '${USERNAME} ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/01${USERNAME}"; exit
 ----
 
 NOTE: This step also verifies that DNS resolution is configured correctly. If resolution fails, ensure DNS records are correct and that the Management Workstation is using the correct DNS server
@@ -405,17 +416,17 @@ NOTE: This step also verifies that DNS resolution is configured correctly. If re
 
 .Verify passwordless SSH and sudo capabilities for the geeko user on all nodes
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do ssh $EACH sudo hostname -f; done
+for EACH in `cat ~/.all_nodes`; do ssh $EACH sudo hostname -f; done
 ----
 ** It should return each fully qualified hostname with no additional interaction required
-*** If any hosts prompt for a password, resolve the issue with `ssh-copy-id -i /home/geeko/.ssh/id_rsa.pub <hostname>` and retest
+*** If any hosts prompt for a password, resolve the issue with `ssh-copy-id -i /home/${USER}/.ssh/id_rsa.pub <hostname>` and retest
 
 [[anchor-60]]
 === Register SLES, CaaS Platform, basesystem, and the containers modules
 
 * Set this variable to the hostname or IP address of the RMT server: `export RMT_HOSTNAME=`
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do 
+for EACH in `cat ~/.all_nodes`; do 
 echo $EACH 
 ssh $EACH sudo SUSEConnect --url http://${RMT_HOSTNAME} && \
 ssh $EACH sudo SUSEConnect -p sle-module-containers/15.1/x86_64 && \
@@ -428,7 +439,7 @@ done
 
 * Each product should be followed by a line that says "Registered"
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do 
+for EACH in `cat ~/.all_nodes`; do 
 echo $EACH 
 ssh $EACH sudo SUSEConnect -s | egrep -o --color "caasp|SLES|basesystem|containers|server-applications|\"Registered\"" && \
 echo"" && read -p "Press Enter for next system"
@@ -438,14 +449,14 @@ done
 ==== Ensure swap is not enabled on any of the CaaS Platform hosts
 
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH grep -v Filename /proc/swaps; echo ""; done
+for EACH in `cat ~//.all_nodes`; do echo $EACH; ssh $EACH grep -v Filename /proc/swaps; echo ""; done
 ----
 ** Should return a header line for each node, but nothing else
 
 ==== Ensure name resolution is correcly configured on all cluster nodes and the Management Workstation
 
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH tail -2 /etc/resolv.conf; echo ""; done
+for EACH in `cat ~//.all_nodes`; do echo $EACH; ssh $EACH tail -2 /etc/resolv.conf; echo ""; done
 echo kubeadmin
 tail -2 /etc/resolv.conf
 ----
@@ -461,14 +472,18 @@ NOTE: The load balancer(s) will present a cluster IP address for API clients to 
 
 ==== Ensure all cluster nodes can reach resolve the name of, and reach, the load balancer
 
+* Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
+* Set the cluster nodes' fully qualified domain name, i.e. suse.hpc.local: `export DOMAIN=`
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH ping -c 2 mstr.suse.hpc.local; echo ""; done
+for EACH in `cat ~/.all_nodes`; do echo $EACH; ssh $EACH ping -c 2 ${MASTER_PREFIX}.${DOMAIN}; echo ""; done
 ----
 
 ==== Ensure all cluster nodes can reach resolve the name of, and reach, the RMT server
 
+* Set the name of the RMT server, i.e. rmt: `export RMT_SHORTNAME=`
+* Set the cluster nodes' fully qualified domain name, i.e. suse.hpc.local: `export DOMAIN=`
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH ping -c 2 smt.suse.hpc.local; echo ""; done
+for EACH in `cat ~/.all_nodes`; do echo $EACH; ssh $EACH ping -c 2 ${RMT_SHORTNAME}.${DOMAIN}; echo ""; done
 ----
 
 [[anchor-70]]
@@ -482,7 +497,7 @@ NOTE: Perform the following steps from the Management Workstation
 .For any VM nodes, snapshot before instantiating the cluster
 * Create snapshot
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo $EACH; ssh $EACH sudo virsh snapshot-create-as $EACH --name "before forming cluster"; echo ""; done
+for EACH in `cat ~/.all_nodes`; do echo $EACH; ssh $EACH sudo virsh snapshot-create-as $EACH --name "before forming cluster"; echo ""; done
 ----
 ////
 
@@ -493,7 +508,7 @@ export CLUSTER_NAME=
 ----
 ----
 eval "$(ssh-agent -t 180)"
-ssh-add /home/geeko/.ssh/id_rsa
+ssh-add /home/${USER}/.ssh/id_rsa
 sudo zypper --non-interactive install -t pattern SUSE-CaaSP-Management
 cd ~; skuba cluster init --control-plane ${CONTROL_PLANE} ${CLUSTER_NAME} && cd ~/${CLUSTER_NAME}
 kill ${SSH_AGENT_PID}
@@ -509,34 +524,35 @@ NOTE: --control-plane defines the FQDN of the load balancer. The second argument
 **** `ssh-add /home/geeko/.ssh/id_rsa`
 ////
 
-* Set the FIRST_MASTER_FQDN (set to mstr1.suse.hpc.local in this guide) and FIRST_MASTER (set to mstr1 in this guide) and bootstrap the cluster:
-
 CAUTION: These procedures utilize the pattern "mstr" to identify master nodes and "wrkr" to identify worker nodes. Make adjustments, as appropriate to match the fully qualified hostnames specified in the .all_nodes file.
 
+* Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
+
 ----
-export FIRST_MASTER_FQDN=$(grep mstr ~/autoyast_templates/.all_nodes | head -1)
+export FIRST_MASTER_FQDN=$(grep ${MASTER_PREFIX} ~/.all_nodes | head -1)
 export FIRST_MASTER=$(echo ${FIRST_MASTER_FQDN} | awk -F. '{print$1}')
 ----
 ----
 eval "$(ssh-agent -t 180)"
-ssh-add /home/geeko/.ssh/id_rsa
-skuba node bootstrap --user geeko --sudo --target ${FIRST_MASTER_FQDN} ${FIRST_MASTER}
+ssh-add /home/${USER}/.ssh/id_rsa
+skuba node bootstrap --user ${USER} --sudo --target ${FIRST_MASTER_FQDN} ${FIRST_MASTER}
 kill ${SSH_AGENT_PID}
 ----
 
 NOTE: This command bootstraps the CaaS Platform cluster (using mstr1.suse.hpc.local in this guide) as the first master node. Internally, Kubernetes will use the host nodename as the Kubernetes cluster nodename (mstr1 in this guide).
 
 ==== Join additional Master Nodes to the cluster
-* To join all remainging Master Nodes in the ~/autoyast_templates/.all_nodes file, cd into the cluster directory (i.e. ~/suse-hpc-local/), then:
+* To join all remainging Master Nodes in the ~/.all_nodes file, cd into the cluster directory (i.e. ~/suse-hpc-local/), then:
+* Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
 
 ----
 ## Start by gathering all of the master nodes, less the first one
-for MASTER_FQDN in `grep mstr ~/autoyast_templates/.all_nodes | tail -n+2`; do \
+for MASTER_FQDN in `grep ${MASTER_PREFIX} ~/.all_nodes | tail -n+2`; do \
 eval "$(ssh-agent -t 180)"
-ssh-add /home/geeko/.ssh/id_rsa
+ssh-add /home/${USER}/.ssh/id_rsa
 ## This will use the host nodename as the Kubernetes nodename
 MASTER=`echo ${MASTER_FQDN} | awk -F. '{print$1}'`; \
-skuba node join --role master --user geeko --sudo \
+skuba node join --role master --user ${USER} --sudo \
 --target ${MASTER_FQDN} ${MASTER}; \
 kill ${SSH_AGENT_PID}
 done
@@ -546,13 +562,12 @@ done
 
 ----
 eval "$(ssh-agent -t 180)"
-cd ~/suse-caasp-hpc/
-ssh-add /home/geeko/.ssh/id_rsa
+ssh-add /home/${USER}/.ssh/id_rsa
 export MASTER_FQDN=
 ----
 ----
 MASTER=`echo ${MASTER_FQDN} | awk -F. '{print$1}'`; \
-skuba node join --role master --user geeko --sudo \
+skuba node join --role master --user ${USER} --sudo \
 --target ${MASTER_FQDN} ${MASTER}
 kill ${SSH_AGENT_PID}
 ----
@@ -560,14 +575,15 @@ kill ${SSH_AGENT_PID}
 IMPORTANT: If any nodes will require additional configuration such as GPU integration, use the command `kubectl cordon <node name>` to prevent work from being assigned to it until it is ready.
 
 ==== Join Worker Nodes to the cluster
-* To join all remainging Worker Nodes in the ~/autoyast_templates/.all_nodes file, cd into the cluster directory (i.e. ~/suse-hpc-local/), then:
+* To join all remainging Worker Nodes in the ~/.all_nodes file, cd into the cluster directory (i.e. ~/suse-hpc-local/), then:
+* Set the worker nodes' hostname prefix, i.e. worker or wrkr: `export WORKER_PREFIX=`
 
 ----
-for WORKER_FQDN in `grep wrkr ~/autoyast_templates/.all_nodes`; do \
+for WORKER_FQDN in `grep ${WORKER_PREFIX} ~/.all_nodes`; do \
 eval "$(ssh-agent -t 180)"
-ssh-add /home/geeko/.ssh/id_rsa
+ssh-add /home/${USER}/.ssh/id_rsa
 WORKER=`echo ${WORKER_FQDN} | awk -F. '{print$1}'`; \
-skuba node join --role worker --user geeko --sudo \
+skuba node join --role worker --user ${USER} --sudo \
 --target ${WORKER_FQDN} ${WORKER}; \
 kill ${SSH_AGENT_PID}
 done
@@ -576,12 +592,12 @@ done
 * To join a single Worker Node to the cluster, cd into the cluster directory (i.e. ~/suse-hpc-local/), then:
 ----
 eval "$(ssh-agent -t 180)"
-ssh-add /home/geeko/.ssh/id_rsa
+ssh-add /home/${USER}/.ssh/id_rsa
 export WORKER_FQDN=
 ----
 ----
 WORKER=`echo ${WORKER_FQDN} | awk -F. '{print$1}'`; \
-skuba node join --role worker --user geeko --sudo \
+skuba node join --role worker --user ${USER} --sudo \
 --target ${WORKER_FQDN} ${WORKER}
 kill ${SSH_AGENT_PID}
 ----
@@ -590,11 +606,11 @@ IMPORTANT: If any nodes will require additional configuration such as GPU integr
 
 
 ==== Verify the status of the cluster
-* `cd /home/geeko/suse-caasp-hpc`
+* `cd /home/${USER}/suse-caasp-hpc`
 * `skuba cluster status`
 
 ==== Enable the use of kubectl from the Management Workstation
-* `echo export KUBECONFIG=/home/geeko/suse-caasp-hpc/admin.conf >> ~/.bashrc`
+* `echo export KUBECONFIG=/home/${USER}/suse-caasp-hpc/admin.conf >> ~/.bashrc`
 * `. ~/.bashrc` 
 * `kubectl get nodes`
 
@@ -814,7 +830,7 @@ EOF
 
 .Validate the nodes that are equipped with Nvidia GPUs
 ----
-for EACH in `cat ~/autoyast_templates/.all_nodes`; do echo -n $EACH": "; ssh $EACH sudo lspci | grep -i nvidia; echo ""; done
+for EACH in `cat ~/.all_nodes`; do echo -n $EACH": "; ssh $EACH sudo lspci | grep -i nvidia; echo ""; done
 ----
 
 .Ensure the GPU equipped Worker Nodes are cordoned (marked with Ready,SchedulingDisabled): `kubectl get nodes`
@@ -859,9 +875,9 @@ sudo zypper --non-interactive install cuda
 
 * Check that you can access the GPU:
 ----
-sudo usermod -G video -a geeko
+sudo usermod -G video -a ${USER}
 sudo usermod -G video -a root
-sudo su - geeko
+sudo su - ${USER}
 nvidia-smi
 ----
 ** Should get an output that contains:
