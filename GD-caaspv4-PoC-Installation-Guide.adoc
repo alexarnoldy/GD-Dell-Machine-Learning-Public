@@ -828,7 +828,7 @@ EOF
 [[anchor-110]]
 === Enable GPU availability for CaaS Platform
 
-.Validate the nodes that are equipped with Nvidia GPUs
+.From the *CaaS Platform Administrative Workstation*, validate the nodes that are equipped with Nvidia GPUs
 ----
 for EACH in `cat ~/.all_nodes`; do echo -n $EACH": "; ssh $EACH sudo lspci | grep -i nvidia; echo ""; done
 ----
@@ -873,7 +873,7 @@ sudo zypper --non-interactive install cuda
 * When the driver is correctly loaded it will show version information in: `cat /proc/driver/nvidia/version`
 ** If the driver hasn't loaded, reboot the node and check again
 
-* Check that you can access the GPU:
+* Verfity that you can access the GPU:
 ----
 sudo usermod -G video -a ${USER}
 sudo usermod -G video -a root
@@ -887,6 +887,7 @@ NVIDIA-SMI XXX.YY Driver Version: XXX.YY CUDA Version: XX.Y
 No running processes found
 ----
 
+////
 * Install the Nvidia libnvidia-container:
 ----
 wget https://github.com/NVIDIA/libnvidia-container/releases/download/v1.0.0/libnvidia-container_1.0.0_x86_64.tar.xz
@@ -902,7 +903,30 @@ CUDA version:   XX.Y
 Model:          X
 Brand:          Y
 ----
+////
 
+* Install the Nvidia libnvidia-container1:
+
+----
+sudo zypper addrepo https://download.opensuse.org/repositories/home:jordimassaguerpla:nvidia_container/SLE_15_SP1/home:jordimassaguerpla:nvidia_container.repo
+sudo zypper ref
+sudo zypper install libnvidia-container1
+----
+
+* Install the Nvidia container cli
+----
+sudo zypper install libnvidia-container-tools nvidia-container-toolkit
+----
+* Verify functionality of the nvidia-container-cli utility: `nvidia-container-cli info`
+** Should get an output that contains:
+----
+NVRM version:   XXX.YY                                                          
+CUDA version:   XX.Y  
+Model:          X
+Brand:          Y
+----
+
+////
 ### Process to install nvidia-container-toolkit on Nvidia GPU equipped nodes
 
 NOTE: Start the process on the *CaaS Platform Administrative Workstation*
@@ -932,6 +956,7 @@ export WORKER=
 scp -r etc/ $WORKER:~/
 scp -r usr/ $WORKER:~/
 ----
+
 *** Repeat for all remainin GPU equipped Worker Nodes
 
 ==== Perform the following steps on each GPU equipped Worker Node:
@@ -956,10 +981,11 @@ sudo cp usr/share/licenses/nvidia-container-toolkit-1.0.5/LICENSE /usr/share/lic
 sudo chmod 0666 /dev/nvidia*
 sudo chown root:video /dev/nvidia*
 ----
+////
 
-* (Optional) Install Podman on the Worker Node and test that a container can access the GPU: 
+* (Optional) Install Podman on the Worker Node and verify that a container can access the GPU: 
 ----
-sudo zypper --non-interactive install podman
+sudo zypper --non-interactive install podman podman-cni-config
 sudo podman run --rm --net=host nvidia/cuda nvidia-smi
 ----
 ** Should get an output that contains:
@@ -971,16 +997,17 @@ No running processes found
 
 ==== Finish the process from the Administrative Workstation
 * Install the Nvidia Kubernetes device plugin 
-* `kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/1.0.0-beta/nvidia-device-plugin.yml`
+* `kubectl create -f https://github.com/NVIDIA/k8s-device-plugin/blob/master/nvidia-device-plugin.yml`
+//* `kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/1.0.0-beta/nvidia-device-plugin.yml`
 
-* Set this variable to the CaaSP node name (not the FQDN) for the next several commands, then repeat for each GPU equipped worker node: `export WORKER=`
+* Set this variable to the first GPU equipped worker node's CaaSP node name (not the FQDN) for the next several commands, then repeat for each GPU equipped worker node: `export WORKER=`
 
 * Ensure the correct number of GPUs are recognized on the worker node: `kubectl describe node $WORKER | egrep "gpu|Unschedulable"`
 ** Output should include three lines beginning with `nvidia.com/gpu`. The first two should match the number of GPUs on the node. The last line should show quanties zero
 
 NOTE: If the previous command also showed `Unschedulable` as `true`, uncordon the node before continuing: `kubectl uncordon $WORKER`
 
-.Ensure that CaaS Platform can run a GPU enabled pod on the node:
+.Ensure that CaaS Platform correctly schedules a pod needing GPUs on the node:
 
 * Set this variable to the number of GPUs on this node: `export GPUS=`
 * Create the cuda-vector-add.yaml file:
