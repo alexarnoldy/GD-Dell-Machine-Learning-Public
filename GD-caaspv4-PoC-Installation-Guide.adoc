@@ -421,6 +421,15 @@ for EACH in `cat ~/.all_nodes`; do ssh $EACH sudo hostname -f; done
 ** It should return each fully qualified hostname with no additional interaction required
 *** If any hosts prompt for a password, resolve the issue with `ssh-copy-id -i /home/${USER}/.ssh/id_rsa.pub <hostname>` and retest
 
+.Ensure IPv4 forwarding is not configured in the /etc/sysctl.conf file
+
+NOTE: The skuba installation tool will configure IPv4 forwarding during installation. Pre-existing configurations can cause unexpected results.
+
+* Run the following loop to comment out any IPv4 forwarding settings on the cluster nodes:
+----
+for EACH in $(cat .all_nodes); do echo ${EACH}; ssh ${EACH} sudo sed -i 's/^net.ipv4.ip_forward/#net.ipv4.ip_forward/' /etc/sysctl.conf; done
+----
+
 [[anchor-60]]
 === Register SLES, CaaS Platform, basesystem, and the containers modules
 
