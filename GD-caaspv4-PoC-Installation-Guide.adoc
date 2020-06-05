@@ -83,7 +83,8 @@ IMPORTANT: It is recommended to use a secure password that will work with all el
 * Enable passwordless sudo for the user geeko
 ----
 export USERNAME="geeko"
-echo '${USERNAME}ALL=(ALL) NOPASSWD: ALL' > /tmp/01${USERNAME}
+echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" > /tmp/01${USERNAME}
+sudo chown root:root  /tmp/01${USERNAME}
 sudo mv /tmp/01${USERNAME} /etc/sudoers.d/
 ----
 * `ssh-keygen`
@@ -272,9 +273,13 @@ NOTE: Peform the following steps on each of the two installed servers
 
 * `sudo yast2 clone_system`
 ** Approve the installation of the autoyast2 package
-* `sudo mv /root/autoinst.xml ~/$(hostname).xml`
-* `sudo chown -R geeko:users ~/$(hostname).xml`
-* `scp ~/$(hostname).xml kubeadmin.suse.hpc.local:~/autoyast_templates/`
+* `export USERNAME="geeko"`
+* `export ADMIN_NODE="kubeadmin.suse.hpc.local"`
+----
+sudo mv /root/autoinst.xml ~/$(hostname).xml
+sudo chown -R ${USERNAME} ~/$(hostname).xml
+scp ~/$(hostname).xml ${ADMIN_NODE}:~/autoyast_templates/
+----
 
 
 ==== Create the AutoYaST files for the remaining nodes  
@@ -288,6 +293,7 @@ NOTE: Peform the following steps on the Management Workstation
 ----
 cd ~/autoyast_templates/
 for NODE in ${MASTER_PREFIX}2 ${MASTER_PREFIX}3; do cp -p ${MASTER_PREFIX}1.xml ${NODE}.xml; done
+# Note: If all nodes are the same type of system and only the master1 node was clones, copy the master1.xml file to worker1.xml before running the following command
 for NODE in ${WORKER_PREFIX}2 ${WORKER_PREFIX}3 ${WORKER_PREFIX}4; do cp -p ${WORKER_PREFIX}1.xml ${NODE}.xml; done
 ----
 
@@ -300,7 +306,7 @@ IMPORTANT: Before continuing, ensure each cluster node has an XML file as well a
 NOTE: Peform the following steps once for each of the two installed servers (i.e. once for the Dell R640, then again for the Dell R740)
 
 * Update the hostnames in the nodes' XML files:
-** Set this variable to the hostname (not the FQDN) of the installed server (i.e. the installed Dell R640): `export FIRST_HOSTNAME=`
+** Set this variable to the hostname (not the FQDN) of the installed server (i.e. master1 or worker1): `export FIRST_HOSTNAME=`
 ** Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
 ** Set the worker nodes' hostname prefix, i.e. worker or wrkr: `export WORKER_PREFIX=`
 ** Execute this loop:
@@ -315,10 +321,12 @@ done
 ----
 ** Review the /tmp/hostname_update file to ensure the sed commands to change the hostnames are correct: `grep -v suse /tmp/hostname_update`
 *** Correct any mistakes in the file, then execute the commands in it: `bash /tmp/hostname_update`
-* Update the IP addresses in the XML files:
-** Set this variable to the IP address of the installed server: `export FIRST_IP=`
+
+.Update the IP addresses in the XML files:
+* Set this variable to the IP address of the installed server: `export FIRST_IP=`
 
 TIP: Get the correct IP address with the command: `grep ipaddr <hostname>.xml` where <hostname> is the first node installed
+
 ** Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
 ** Set the worker nodes' hostname prefix, i.e. worker or wrkr: `export WORKER_PREFIX=`
 ** Execute this loop:
