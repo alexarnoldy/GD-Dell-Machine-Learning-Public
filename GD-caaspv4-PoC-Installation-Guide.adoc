@@ -150,8 +150,8 @@ TIP: This step is primarily intended to support AutoYaST installation. However, 
 IMPORTANT: If port 80 is in use, specify a different port with the `-p <container port>:<host port>`` option, or a random high port with the `-P` option in the following command
 
 * Launch nginx webserver container: 
+* Set this variable to the local user: `export USERNAME="geeko"`
 ----
-export USERNAME="geeko"
 cd ~ 
 sudo podman run --name autoyast-nginx -v /home/${USERNAME}/autoyast_templates:/usr/share/nginx/html:ro -p 80:80 -d nginx:latest
 ----
@@ -160,7 +160,10 @@ IMPORTANT: This container WILL NOT automatically start after rebooting the Manag
 
 NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the curl command below, i.e. `curl http://kubeadmin:<port>/.all_nodes`. The port can be verified with `sudo podman ps`
 
-* Test that files in the autoyast_templates directory are available on the cluster network (if possible, from another system connected to the clsuter network): `curl http://kubeadmin/.all_nodes`
+* Test that files in the autoyast_templates directory are available on the cluster network (if possible, from another system connected to the clsuter network): 
+** Set this variable to the hostname (not the FQDN) of the Admin Node, aka Management Workstation (i.e. admin): `export ADMIN_NODE=""`
+----
+curl http://${ADMIN_NODE}/.all_nodes`
 ** The output should display the contents of the .all_nodes file
 
 TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
@@ -319,7 +322,7 @@ NEW_HOSTNAME=$(echo ${EACH} | awk -F. '{print$1}')
 echo "sed -i 's/${FIRST_HOSTNAME}/${NEW_HOSTNAME}/g' ${EACH}" >> /tmp/hostname_update
 done
 ----
-** Review the /tmp/hostname_update file to ensure the sed commands to change the hostnames are correct: `grep -v suse /tmp/hostname_update`
+** Review the /tmp/hostname_update file to ensure the sed commands to change the hostnames are correct: `cat /tmp/hostname_update`
 *** Correct any mistakes in the file, then execute the commands in it: `bash /tmp/hostname_update`
 
 .Update the IP addresses in the XML files:
@@ -327,8 +330,8 @@ done
 
 TIP: Get the correct IP address with the command: `grep ipaddr <hostname>.xml` where <hostname> is the first node installed
 
-** Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
-** Set the worker nodes' hostname prefix, i.e. worker or wrkr: `export WORKER_PREFIX=`
+** If not already set, set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
+** If not already set, set the worker nodes' hostname prefix, i.e. worker or wrkr: `export WORKER_PREFIX=`
 ** Execute this loop:
 ----
 cd ~/autoyast_templates
@@ -339,18 +342,26 @@ NEW_IP=$(getent hosts $(echo ${EACH} | awk -F. '{print$1}') | awk '{print$1}')
 echo "sed -i 's/${FIRST_IP}/${NEW_IP}/g' ${EACH}" >> /tmp/IP_update
 done
 ----
-** Review the /tmp/hostname_update file to ensure the sed commands to change the IP addresses are correct: `grep -v suse /tmp/IP_update`
+** Review the /tmp/hostname_update file to ensure the sed commands to change the IP addresses are correct: `cat /tmp/IP_update`
 *** Correct any mistakes in the file, then execute the commands in it: `bash /tmp/IP_update`
+
+.Ensure ipv4_forwarding is set to true in the XML files:
+* Execute these commands:
+----
+cd ~/autoyast_templates
+sed  -i '/ipv4_forward/ s/false/true/' *.xml 
+----
 
 ==== Test that each Worker Node XML file is available through the nginx webserver
 
 NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the command below, i.e. `curl -s http://kubeadmin:<port>/${EACH}.xml`. The port can be verified by running `sudo podman ps` on the Management Workstation.
 
+* Set this variable to the hostname (not the FQDN) of the Admin Node, aka Management Workstation (i.e. admin): `export ADMIN_NODE=""`
 ----
 for EACH in $(awk -F. '{print$1}' .all_nodes)
 do 
 echo ${EACH}
-curl -s http://kubeadmin/${EACH}.xml| egrep "<hostname|ipaddr" | grep -v 127
+curl -s http://${ADMIN_NODE}/${EACH}.xml| egrep "<hostname|ipaddr" | grep -v 127
 echo ""
 done
 ----
@@ -369,9 +380,9 @@ IMPORTANT: The procedure for installing via AutoYaST is slightly different depen
 ** If there is a "Boot Options" line near the bottom of the screen, provide the AutoYaST parameters, shown below. When ready, press Enter to boot the system.
 ** If there IS NOT a "Boot Options" line near the bottom of the screen, press the "e" key. Then, provide the AutoYaST parameters shown below, at the end of the "linuxefi" line (Be sure to insert a space after "splash=silent"). When ready, press Ctrl+x to boot the system.
 
-NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the command below, i.e. `autoyast=http://kubeadmin:<port>/<node_name>.xml`. The port can be verified by running `sudo podman ps` on the Management Workstation.
+NOTE: If the webserver on the Managment Workstation is using a port other than 80, specify that port in the command below, i.e. `autoyast=http://<admin node>:<port>/<node_name>.xml`. The port can be verified by running `sudo podman ps` on the Management Workstation.
 
-*** AutoYaST parameters: `autoyast=http://kubeadmin/<node name>.xml ifcfg=em1=dhcp`
+*** AutoYaST parameters: `autoyast=http://<admin node>/<node name>.xml ifcfg=em1=dhcp`
 *** If DHCP is not available provide the network configuration parameters in the form of: `ifcfg=em1=<node IP address/cidr mask>,<default gateway>,<primary DNS server>,<search domain> hostname=<FQDN of node>`
 
 TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
@@ -466,15 +477,16 @@ done
 ==== Ensure swap is not enabled on any of the CaaS Platform hosts
 
 ----
-for EACH in `cat ~//.all_nodes`; do echo $EACH; ssh $EACH grep -v Filename /proc/swaps; echo ""; done
+for EACH in `cat ~/.all_nodes`; do echo $EACH; ssh $EACH grep -v Filename /proc/swaps; echo ""; done
 ----
 ** Should return a header line for each node, but nothing else
 
 ==== Ensure name resolution is correcly configured on all cluster nodes and the Management Workstation
 
+* Set this variable to the hostname (not the FQDN) of the Admin Node, aka Management Workstation (i.e. admin): `export ADMIN_NODE=""`
 ----
-for EACH in `cat ~//.all_nodes`; do echo $EACH; ssh $EACH tail -2 /etc/resolv.conf; echo ""; done
-echo kubeadmin
+for EACH in `cat ~/.all_nodes`; do echo $EACH; ssh $EACH tail -2 /etc/resolv.conf; echo ""; done
+echo ${ADMIN_NODE}
 tail -2 /etc/resolv.conf
 ----
 
