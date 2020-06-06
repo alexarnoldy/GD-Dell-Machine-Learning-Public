@@ -164,6 +164,7 @@ NOTE: If the webserver on the Managment Workstation is using a port other than 8
 ** Set this variable to the hostname (not the FQDN) of the Admin Node, aka Management Workstation (i.e. admin): `export ADMIN_NODE=""`
 ----
 curl http://${ADMIN_NODE}/.all_nodes`
+----
 ** The output should display the contents of the .all_nodes file
 
 TIP: In some cases the command above will fail to resolve to the correct IP address for the Management Workstation. In those cases, simply use the Management Workstation's cluster network IP address.
