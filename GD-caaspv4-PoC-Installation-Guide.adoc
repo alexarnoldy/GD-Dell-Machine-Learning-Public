@@ -427,7 +427,7 @@ for EACH in `cat ~/.all_nodes`; do ssh $EACH ; done
 ----
 * Execute this command for each node: 
 ----
-sudo bash -c "echo '${USERNAME} ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/01${USERNAME}"; exit
+sudo bash -c "echo '${USER} ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/01${USER}"; exit
 ----
 
 NOTE: This step also verifies that DNS resolution is configured correctly. If resolution fails, ensure DNS records are correct and that the Management Workstation is using the correct DNS server
@@ -480,7 +480,6 @@ done
 ----
 for EACH in `cat ~/.all_nodes`; do echo $EACH; ssh $EACH grep -v Filename /proc/swaps; echo ""; done
 ----
-** Should return a header line for each node, but nothing else
 
 ==== Ensure name resolution is correcly configured on all cluster nodes and the Management Workstation
 
@@ -502,10 +501,9 @@ NOTE: The load balancer(s) will present a cluster IP address for API clients to 
 
 ==== Ensure all cluster nodes can reach resolve the name of, and reach, the load balancer
 
-* Set the master nodes' hostname prefix, i.e. master or mstr: `export MASTER_PREFIX=`
-* Set the cluster nodes' fully qualified domain name, i.e. suse.hpc.local: `export DOMAIN=`
+* Set this variable to the FQDN of the load balancer, i.e. mstr.suse.hpc.local: `export LB_FQDN=`
 ----
-for EACH in `cat ~/.all_nodes`; do echo $EACH; ssh $EACH ping -c 2 ${MASTER_PREFIX}.${DOMAIN}; echo ""; done
+for EACH in `cat ~/.all_nodes`; do echo $EACH; ssh $EACH ping -c 2 ${LB_FQDN}; echo ""; done
 ----
 
 ==== Ensure all cluster nodes can reach resolve the name of, and reach, the RMT server
@@ -531,7 +529,7 @@ for EACH in `cat ~/.all_nodes`; do echo $EACH; ssh $EACH sudo virsh snapshot-cre
 ----
 ////
 
-* Set the `CONTROL_PLANE` (set to mstr.suse.hpc.local in this guide) and `CLUSTER_NAME` (set to suse-caasp-hpc in this guide) variables and install the CaaS Platform management software and initialize the cluster definition:
+* Set the `CONTROL_PLANE` (set to the load balancer, mstr.suse.hpc.local in this guide) and `CLUSTER_NAME` (set to suse-caasp-hpc in this guide) variables and install the CaaS Platform management software and initialize the cluster definition:
 ----
 export CONTROL_PLANE=
 export CLUSTER_NAME=
